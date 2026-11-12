@@ -1,17 +1,17 @@
--- ═══════════════════════════════════════════════════════════════════════════
+﻿-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 -- open-autoDM - Core schema
 --
--- profiles            → extends auth.users
--- instagram_accounts  → connected IG accounts (AES-256-GCM encrypted tokens)
--- automations         → AutoDM rules
--- dm_jobs             → audit log of every processed job
--- dm_sent_log         → deduplication (UNIQUE constraints are the guarantee)
--- automation_sessions → 2-step DM flow state (quick-reply button routing)
--- dm_logs             → per-session conversation history
--- debug_events        → live debug panel event stream
--- ═══════════════════════════════════════════════════════════════════════════
+-- profiles            â†’ extends auth.users
+-- instagram_accounts  â†’ connected IG accounts (AES-256-GCM encrypted tokens)
+-- automations         â†’ AutoDM rules
+-- dm_jobs             â†’ audit log of every processed job
+-- dm_sent_log         â†’ deduplication (UNIQUE constraints are the guarantee)
+-- automation_sessions â†’ 2-step DM flow state (quick-reply button routing)
+-- dm_logs             â†’ per-session conversation history
+-- debug_events        â†’ live debug panel event stream
+-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
--- ── Shared trigger: auto-update updated_at ─────────────────────────────────
+-- â”€â”€ Shared trigger: auto-update updated_at â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 BEGIN
@@ -20,7 +20,7 @@ BEGIN
 END;
 $$;
 
--- ── profiles ───────────────────────────────────────────────────────────────
+-- â”€â”€ profiles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE public.profiles (
   id          UUID        PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   full_name   TEXT,
@@ -64,7 +64,7 @@ CREATE POLICY "Users can view own profile"
 CREATE POLICY "Users can update own profile"
   ON public.profiles FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
--- ── instagram_accounts ─────────────────────────────────────────────────────
+-- â”€â”€ instagram_accounts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE public.instagram_accounts (
   id                      UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id                 UUID        NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -105,7 +105,7 @@ CREATE POLICY "Users can view own instagram accounts"
 CREATE POLICY "Users can delete own instagram accounts"
   ON public.instagram_accounts FOR DELETE USING (auth.uid() = user_id);
 
--- ── automations ────────────────────────────────────────────────────────────
+-- â”€â”€ automations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TYPE public.automation_type AS ENUM ('comment_dm', 'dm_reply', 'story_reply');
 
 CREATE TABLE public.automations (
@@ -137,9 +137,9 @@ CREATE TABLE public.automations (
 
   -- Ask-to-follow gate (honor system - Meta has no follower-check endpoint)
   ask_to_follow_enabled               BOOLEAN         NOT NULL DEFAULT false,
-  ask_to_follow_message               TEXT            NOT NULL DEFAULT 'Hey! It seems you''re not following me yet 😊',
+  ask_to_follow_message               TEXT            NOT NULL DEFAULT 'Hey! It seems you''re not following me yet ðŸ˜Š',
   ask_to_follow_visit_profile_button  TEXT            NOT NULL DEFAULT 'Visit Profile',
-  ask_to_follow_confirm_button        TEXT            NOT NULL DEFAULT 'I''m following ✅',
+  ask_to_follow_confirm_button        TEXT            NOT NULL DEFAULT 'I''m following âœ…',
 
   -- Sequential responses after the quick-reply tap. JSONB array of DMResponse.
   dm_responses                        JSONB           NOT NULL DEFAULT '[]'::JSONB,
@@ -172,7 +172,7 @@ CREATE POLICY "Users can update own automations"
 CREATE POLICY "Users can delete own automations"
   ON public.automations FOR DELETE USING (auth.uid() = user_id);
 
--- ── dm_jobs (audit log) ────────────────────────────────────────────────────
+-- â”€â”€ dm_jobs (audit log) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TYPE public.dm_job_status AS ENUM ('queued', 'processing', 'sent', 'failed', 'skipped');
 
 CREATE TABLE public.dm_jobs (
@@ -211,7 +211,7 @@ CREATE POLICY "Users can view own dm jobs"
   ON public.dm_jobs FOR SELECT
   USING (EXISTS (SELECT 1 FROM public.automations a WHERE a.id = dm_jobs.automation_id AND a.user_id = auth.uid()));
 
--- ── dm_sent_log (deduplication - DB-level guarantee) ───────────────────────
+-- â”€â”€ dm_sent_log (deduplication - DB-level guarantee) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE public.dm_sent_log (
   id                    UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   instagram_account_id  UUID        NOT NULL REFERENCES public.instagram_accounts(id) ON DELETE CASCADE,
@@ -233,7 +233,7 @@ CREATE POLICY "Users can view own dm sent log"
   ON public.dm_sent_log FOR SELECT
   USING (EXISTS (SELECT 1 FROM public.automations a WHERE a.id = dm_sent_log.automation_id AND a.user_id = auth.uid()));
 
--- ── automation_sessions (2-step quick-reply flow) ──────────────────────────
+-- â”€â”€ automation_sessions (2-step quick-reply flow) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE public.automation_sessions (
   id                    UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   automation_id         UUID        NOT NULL REFERENCES public.automations(id) ON DELETE CASCADE,
@@ -258,7 +258,7 @@ CREATE POLICY "Users can view own automation sessions"
   ON public.automation_sessions FOR SELECT
   USING (automation_id IN (SELECT id FROM public.automations WHERE user_id = auth.uid()));
 
--- ── dm_logs (conversation history) ─────────────────────────────────────────
+-- â”€â”€ dm_logs (conversation history) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE public.dm_logs (
   id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id   UUID        NOT NULL REFERENCES public.automation_sessions(id) ON DELETE CASCADE,
@@ -280,7 +280,7 @@ CREATE POLICY "Users can view own dm logs"
     WHERE a.user_id = auth.uid()
   ));
 
--- ── debug_events (live debug panel) ────────────────────────────────────────
+-- â”€â”€ debug_events (live debug panel) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE public.debug_events (
   id           UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
@@ -297,7 +297,7 @@ CREATE INDEX debug_events_created_at_idx ON public.debug_events (created_at DESC
 -- No user policies: service-role only (read surfaced via API in debug mode).
 ALTER TABLE public.debug_events ENABLE ROW LEVEL SECURITY;
 
--- ── RPC: atomic DM counter ─────────────────────────────────────────────────
+-- â”€â”€ RPC: atomic DM counter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE OR REPLACE FUNCTION public.increment_automation_dms_sent(automation_id UUID)
 RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -307,7 +307,7 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.increment_automation_dms_sent(UUID) TO service_role;
 
--- ── Storage bucket for card DM images (public: Meta must fetch the URLs) ───
+-- â”€â”€ Storage bucket for card DM images (public: Meta must fetch the URLs) â”€â”€â”€
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES ('card-images', 'card-images', true, 2097152, ARRAY['image/jpeg', 'image/jpg', 'image/png', 'image/webp'])
 ON CONFLICT (id) DO NOTHING;
@@ -316,7 +316,7 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Auth users upload card images') THEN
     CREATE POLICY "Auth users upload card images"
-      ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'card-images');
+      ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'card-images' AND (storage.foldername(name))[1] = auth.uid()::text);
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Public read card images') THEN
     CREATE POLICY "Public read card images"
@@ -324,6 +324,15 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Auth users delete card images') THEN
     CREATE POLICY "Auth users delete card images"
-      ON storage.objects FOR DELETE TO authenticated USING (bucket_id = 'card-images');
+      ON storage.objects FOR DELETE TO authenticated USING (bucket_id = 'card-images' AND (storage.foldername(name))[1] = auth.uid()::text);
   END IF;
 END $$;
+
+REVOKE ALL ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.increment_automation_dms_sent(UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.increment_automation_dms_sent(UUID) TO service_role;
+
+
+
+
+

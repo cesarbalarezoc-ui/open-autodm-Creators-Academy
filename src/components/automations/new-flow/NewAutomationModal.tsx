@@ -64,28 +64,28 @@ const DB_TYPE_TO_FLOW: Record<string, string> = {
 };
 
 const DEFAULT_NAMES: Record<string, string> = {
-    "comment-dm": "Comment funnel",
-    "dm-reply": "DM keyword reply",
-    "story-reply": "Story reply funnel",
+    "comment-dm": "Embudo de comentarios",
+    "dm-reply": "Respuesta por palabras clave",
+    "story-reply": "Embudo de respuestas a historias",
 };
 
 const defaultFlowData = (): AutomationFlowData => ({
-    name: "New automation",
+    name: "Nueva automatización",
     type: null,
     postId: null,
     postThumbnailUrl: null,
     postCaption: "",
     keywords: [],
     keywordsAnyMode: false,
-    customReplies: ["Sent! 🚀", "Check your DMs 📬", "Got it, check your inbox! ✉️"],
+    customReplies: ["¡Enviado! 🚀", "Check your DMs 📬", "¡Listo! Revisa tu bandeja de entrada. ✉️"],
     isAutoDmEnabled: true,
     dmOpeningMessageEnabled: true,
-    dmOpeningMessage: "Hey there!\n\nI'm so happy you're here, thank you so much for your interest 🥰\n\nClick below and I'll send you the link in just a sec ✨",
-    dmOpeningMessageButtonTitle: "Send me the link",
+    dmOpeningMessage: "¡Hola!\n\nQué alegría tenerte aquí. ¡Muchas gracias por tu interés! 🥰\n\nPulsa el botón de abajo y en un momento te enviaré el enlace. ✨",
+    dmOpeningMessageButtonTitle: "Envíame el enlace",
     askToFollowEnabled: false,
-    askToFollowMessage: "Hey! It seems you're not following me yet 😊",
-    askToFollowVisitProfileButton: "Visit Profile",
-    askToFollowConfirmButton: "I'm following ✅",
+    askToFollowMessage: "¡Hola! Parece que todavía no me sigues 😊",
+    askToFollowVisitProfileButton: "Ver perfil",
+    askToFollowConfirmButton: "Ya te sigo ✅",
     dmResponses: [],
 });
 
@@ -120,9 +120,9 @@ export function NewAutomationModal({ isOpen, onClose, editAutomation, accountId 
 
     const [step, setStep] = useState(0);
     const [flowData, setFlowData] = useState<AutomationFlowData>(defaultFlowData());
-    const [savedSnapshot, setSavedSnapshot] = useState<string>("");
+    const [savedSnapshot, setGuardardSnapshot] = useState<string>("");
     const [showConfirm, setShowConfirm] = useState(false);
-    const [activateError, setActivateError] = useState<string | null>(null);
+    const [activateError, setActivarError] = useState<string | null>(null);
     const [pendingAction, setPendingAction] = useState<'save' | 'activate' | null>(null);
 
     const { data: igAccounts } = useInstagramAccounts();
@@ -135,18 +135,18 @@ export function NewAutomationModal({ isOpen, onClose, editAutomation, accountId 
 
     useEffect(() => {
         if (isOpen) {
-            setActivateError(null);
+            setActivarError(null);
             setShowConfirm(false);
             setPendingAction(null);
             if (editAutomation) {
                 const fd = automationToFlowData(editAutomation);
                 setFlowData(fd);
-                setSavedSnapshot(JSON.stringify(fd));
+                setGuardardSnapshot(JSON.stringify(fd));
                 setStep(2);
             } else {
                 const fd = defaultFlowData();
                 setFlowData(fd);
-                setSavedSnapshot(JSON.stringify(fd));
+                setGuardardSnapshot(JSON.stringify(fd));
                 setStep(0);
             }
         }
@@ -156,7 +156,7 @@ export function NewAutomationModal({ isOpen, onClose, editAutomation, accountId 
         setFlowData(prev => ({ ...prev, ...patch })), []);
 
     const handleTypeSelect = (type: string) => {
-        const name = flowData.name === "New automation" ? (DEFAULT_NAMES[type] ?? flowData.name) : flowData.name;
+        const name = flowData.name === "Nueva automatización" ? (DEFAULT_NAMES[type] ?? flowData.name) : flowData.name;
         if (type === "comment-dm") {
             updateData({ type, name });
             setStep(1);
@@ -167,7 +167,7 @@ export function NewAutomationModal({ isOpen, onClose, editAutomation, accountId 
         }
     };
 
-    const handleBack = () => setStep(s => {
+    const handleAtrás = () => setStep(s => {
         if (s === 2 && flowData.type !== "comment-dm") return 0;
         return Math.max(s - 1, 0);
     });
@@ -210,8 +210,8 @@ export function NewAutomationModal({ isOpen, onClose, editAutomation, accountId 
         };
     };
 
-    const handleSave = (activate: boolean) => {
-        setActivateError(null);
+    const handleGuardar = (activate: boolean) => {
+        setActivarError(null);
         setPendingAction(activate ? 'activate' : 'save');
 
         if (isEditMode && editAutomation) {
@@ -238,15 +238,15 @@ export function NewAutomationModal({ isOpen, onClose, editAutomation, accountId 
             }, {
                 onSuccess: () => {
                     setPendingAction(null);
-                    setSavedSnapshot(JSON.stringify(flowData));
+                    setGuardardSnapshot(JSON.stringify(flowData));
                     onClose();
                 },
-                onError: (err) => { setPendingAction(null); setActivateError(err.message); },
+                onError: (err) => { setPendingAction(null); setActivarError(err.message); },
             });
         } else {
             if (!firstAccountId) {
                 setPendingAction(null);
-                setActivateError("Connect an Instagram account first in Settings.");
+                setActivarError("Primero conecta una cuenta de Instagram en Configurar Meta.");
                 return;
             }
             createMutation.mutate(
@@ -254,10 +254,10 @@ export function NewAutomationModal({ isOpen, onClose, editAutomation, accountId 
                 {
                     onSuccess: () => {
                         setPendingAction(null);
-                        setSavedSnapshot(JSON.stringify(flowData));
+                        setGuardardSnapshot(JSON.stringify(flowData));
                         onClose();
                     },
-                    onError: (err) => { setPendingAction(null); setActivateError(err.message); },
+                    onError: (err) => { setPendingAction(null); setActivarError(err.message); },
                 }
             );
         }
@@ -267,15 +267,15 @@ export function NewAutomationModal({ isOpen, onClose, editAutomation, accountId 
     const isActivating = pendingAction === 'activate' && (createMutation.isPending || updateMutation.isPending);
     const isPending = isSaving || isActivating;
 
-    const stepTitle = step === 0 ? "New automation"
-        : step === 1 ? "Choose a post"
+    const stepTitle = step === 0 ? "Nueva automatización"
+        : step === 1 ? "Selecciona una publicación"
         : isEditMode ? `Edit - ${flowData.name}` : flowData.name || "Configure";
 
     return (
         <AnimatePresence>
             {isOpen && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-3">
-                    {/* Backdrop */}
+                    {/* Atrásdrop */}
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -301,8 +301,8 @@ export function NewAutomationModal({ isOpen, onClose, editAutomation, accountId 
 
                             <div className="flex items-center gap-1.5 shrink-0">
                                 {step > 0 && (
-                                    <button onClick={handleBack} className="inline-flex items-center gap-1 h-8 px-2.5 text-[13px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors">
-                                        <ArrowLeft className="w-3.5 h-3.5" /> Back
+                                    <button onClick={handleAtrás} className="inline-flex items-center gap-1 h-8 px-2.5 text-[13px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors">
+                                        <ArrowLeft className="w-3.5 h-3.5" /> Atrás
                                     </button>
                                 )}
 
@@ -315,19 +315,19 @@ export function NewAutomationModal({ isOpen, onClose, editAutomation, accountId 
                                         )}
                                         <button
                                             disabled={isPending}
-                                            onClick={() => handleSave(false)}
+                                            onClick={() => handleGuardar(false)}
                                             className="inline-flex items-center gap-1.5 h-8 px-3 text-[13px] font-medium text-foreground border border-border hover:bg-muted disabled:opacity-50 rounded-lg transition-colors"
                                         >
                                             {isSaving && <Loader2 className="w-3 h-3 animate-spin" />}
-                                            {isSaving ? "Saving…" : "Save"}
+                                            {isSaving ? "Guardando…" : "Guardar"}
                                         </button>
                                         <button
                                             disabled={isPending || (!isEditMode && !firstAccountId)}
-                                            onClick={() => handleSave(true)}
+                                            onClick={() => handleGuardar(true)}
                                             className="inline-flex items-center gap-1.5 h-8 px-3 text-[13px] font-semibold bg-foreground text-background hover:opacity-90 disabled:opacity-50 rounded-lg transition-opacity"
                                         >
                                             {isActivating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                                            {isActivating ? "Activating…" : "Activate"}
+                                            {isActivating ? "Activando…" : "Activar"}
                                         </button>
                                     </>
                                 )}
@@ -398,8 +398,8 @@ export function NewAutomationModal({ isOpen, onClose, editAutomation, accountId 
                                                 <AlertTriangle className="w-4 h-4 text-amber-500" />
                                             </div>
                                             <div>
-                                                <p className="text-[13.5px] font-semibold text-foreground">Unsaved changes</p>
-                                                <p className="text-[12.5px] text-muted-foreground">Your edits haven&apos;t been saved.</p>
+                                                <p className="text-[13.5px] font-semibold text-foreground">Cambios sin guardar</p>
+                                                <p className="text-[12.5px] text-muted-foreground">Tus cambios todavía no se han guardado.</p>
                                             </div>
                                         </div>
                                         <div className="flex gap-2">

@@ -48,9 +48,9 @@ export function AutomationsList({ automations, isLoading, onToggle, onDelete, on
                 <div className="w-11 h-11 rounded-xl bg-muted flex items-center justify-center mb-4">
                     <Sparkles className="w-5 h-5 text-muted-foreground" />
                 </div>
-                <h3 className="text-[15px] font-heading font-semibold mb-1 text-foreground">No automations yet</h3>
+                <h3 className="text-[15px] font-heading font-semibold mb-1 text-foreground">Aún no tienes automatizaciones</h3>
                 <p className="text-[13px] text-muted-foreground max-w-xs">
-                    Create one to reply to comments, DMs, or story replies automatically.
+                    Crea una para responder automáticamente a comentarios, mensajes directos y respuestas a historias.
                 </p>
             </div>
         );

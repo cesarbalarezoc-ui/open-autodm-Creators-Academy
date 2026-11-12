@@ -6,17 +6,17 @@ import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { useUiStore } from "@/lib/store";
 
 const TITLES: Record<string, string> = {
-    "/dashboard": "Dashboard",
-    "/automations": "Automations",
-    "/analytics": "Analytics",
-    "/settings": "Settings",
-    "/setup": "Setup Wizard",
+    "/dashboard": "Panel principal",
+    "/automations": "Automatizaciones",
+    "/analytics": "Estadísticas",
+    "/settings": "Preferencias",
+    "/setup": "Configurar Meta",
 };
 
 export function Topbar() {
     const pathname = usePathname();
     const openMobileSidebar = useUiStore((s) => s.openMobileSidebar);
-    const title = Object.entries(TITLES).find(([path]) => pathname.startsWith(path))?.[1] ?? "open-autoDM";
+    const title = Object.entries(TITLES).find(([path]) => pathname.startsWith(path))?.[1] ?? "PROSPECTOR AI";
 
     return (
         <header className="sticky top-0 z-40 flex h-14 w-full items-center justify-between bg-background/85 backdrop-blur-md border-b border-border px-4 lg:px-8">
@@ -24,7 +24,7 @@ export function Topbar() {
                 <button
                     onClick={openMobileSidebar}
                     className="lg:hidden p-1.5 -ml-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                    aria-label="Open menu"
+                    aria-label="Abrir menú"
                 >
                     <Menu className="w-4 h-4" />
                 </button>

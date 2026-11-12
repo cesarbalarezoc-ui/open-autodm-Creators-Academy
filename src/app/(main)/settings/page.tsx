@@ -41,19 +41,19 @@ function SettingsContent() {
         const igError = searchParams.get("instagram_error");
 
         if (igConnected === "true") {
-            setBanner({ type: "success", message: "Instagram account connected." });
+            setBanner({ type: "success", message: "Cuenta de Instagram conectada." });
             void queryClient.invalidateQueries({ queryKey: ["instagram-accounts"] });
             window.history.replaceState({}, "", "/settings");
         } else if (igError) {
             const errorMessages: Record<string, string> = {
-                access_denied: "Instagram connection was cancelled.",
-                no_instagram_business_account: "No Instagram Business or Creator account found. Switch your Instagram to a professional account first.",
-                account_already_connected: "This Instagram account is already connected to another user on this instance.",
-                state_mismatch: "The connection expired. Try again.",
-                setup_required: "Save your Meta app credentials in the Setup Wizard first.",
-                server_error: "Something went wrong. Check the details and try again.",
-                invalid_callback: "Invalid callback. Try again.",
-                test_user_required: "Add this Instagram account as a test user to use the automation tool. In your Meta app, go to App Roles > Roles > Add People > Instagram Tester, then accept the invite in Instagram (Settings > Apps and websites > Tester invites) and connect again.",
+                access_denied: "Se canceló la conexión con Instagram.",
+                no_instagram_business_account: "No se encontró una cuenta de Instagram Business o Creator. Primero cambia tu cuenta de Instagram a una cuenta profesional.",
+                account_already_connected: "Esta cuenta de Instagram ya está conectada a otro usuario de esta plataforma.",
+                state_mismatch: "La conexión ha caducado. Inténtalo nuevamente.",
+                setup_required: "Primero guarda las credenciales de tu aplicación de Meta en el asistente de configuración.",
+                server_error: "Algo salió mal. Revisa los detalles e inténtalo nuevamente.",
+                invalid_callback: "Respuesta de conexión no válida. Inténtalo nuevamente.",
+                test_user_required: "Añade esta cuenta de Instagram como usuario de prueba para utilizar la herramienta de automatización. En tu aplicación de Meta, entra en App Roles > Roles > Add People > Instagram Tester. Después, acepta la invitación en Instagram (Configuración > Aplicaciones y sitios web > Invitaciones de prueba) y vuelve a conectar.",
             };
             const debugDetail = searchParams.get("debug");
             setBanner({
@@ -76,21 +76,21 @@ function SettingsContent() {
             const { url } = await apiClient<{ url: string }>("/instagram/connect");
             window.location.href = url;
         } catch (err) {
-            const message = err instanceof ApiError ? err.message : "Couldn't start the Instagram connection";
+            const message = err instanceof ApiError ? err.message : "No se pudo iniciar la conexión con Instagram";
             setBanner({ type: "error", message });
             setConnectingIG(false);
         }
     };
 
     const handleDisconnect = async (accountId: string) => {
-        if (!confirm("Disconnect this Instagram account? All automations attached to it will be deleted.")) return;
+        if (!confirm("¿Deseas desconectar esta cuenta de Instagram? Se eliminarán todas las automatizaciones asociadas a ella.")) return;
         setDisconnectingId(accountId);
         try {
             await apiClient(`/instagram/disconnect/${accountId}`, { method: "DELETE" });
             void queryClient.invalidateQueries({ queryKey: ["instagram-accounts"] });
-            setBanner({ type: "success", message: "Instagram account disconnected." });
+            setBanner({ type: "success", message: "Cuenta de Instagram desconectada." });
         } catch (err) {
-            const message = err instanceof ApiError ? err.message : "Couldn't disconnect the account";
+            const message = err instanceof ApiError ? err.message : "No se pudo desconectar la cuenta.";
             setBanner({ type: "error", message });
         } finally {
             setDisconnectingId(null);
@@ -113,10 +113,10 @@ function SettingsContent() {
         setResubscribingId(accountId);
         try {
             const result = await resubscribeMutation.mutateAsync(accountId);
-            setBanner({ type: "success", message: `Webhook subscription refreshed (${result.subscribedFields}). Comment on one of your posts to test.` });
+            setBanner({ type: "success", message: `Suscripción al webhook actualizada (${result.subscribedFields}). Comenta una de tus publicaciones para probarla.` });
             void handleCheckSubscription(accountId);
         } catch (err) {
-            const message = err instanceof ApiError ? err.message : "Couldn't refresh the webhook subscription";
+            const message = err instanceof ApiError ? err.message : "No se pudo actualizar la suscripción del webhook.";
             setBanner({ type: "error", message });
         } finally {
             setResubscribingId(null);
@@ -127,13 +127,13 @@ function SettingsContent() {
         setRefreshingId(accountId);
         try {
             await refreshMutation.mutateAsync(accountId);
-            setBanner({ type: "success", message: "Token refreshed - good for another 60 days." });
+            setBanner({ type: "success", message: "Token renovado correctamente. Válido por otros 60 días." });
         } catch (err) {
             const apiErr = err instanceof ApiError ? err : null;
             if (apiErr?.status === 400) {
-                setBanner({ type: "error", message: "The token has expired. Reconnect your Instagram account." });
+                setBanner({ type: "error", message: "El token ha caducado. Vuelve a conectar tu cuenta de Instagram." });
             } else {
-                setBanner({ type: "error", message: "Couldn't refresh the token. Try again." });
+                setBanner({ type: "error", message: "No se pudo renovar el token. Inténtalo nuevamente." });
             }
         } finally {
             setRefreshingId(null);
@@ -149,8 +149,8 @@ function SettingsContent() {
     return (
         <div className="w-full max-w-3xl mx-auto space-y-5 pb-16">
             <div>
-                <h1 className="text-xl font-heading font-semibold tracking-tight text-foreground">Settings</h1>
-                <p className="text-[13px] text-muted-foreground mt-1">Connected accounts and this instance.</p>
+                <h1 className="text-xl font-heading font-semibold tracking-tight text-foreground">Configuración</h1>
+                <p className="text-[13px] text-muted-foreground mt-1">Cuentas conectadas y configuración de esta plataforma.</p>
             </div>
 
             {banner && (
@@ -170,11 +170,11 @@ function SettingsContent() {
             {/* Meta app */}
             <section className="bg-card border border-border rounded-xl p-5 flex items-center justify-between gap-4">
                 <div className="min-w-0">
-                    <h2 className="text-[14px] font-heading font-semibold text-foreground">Meta app</h2>
+                    <h2 className="text-[14px] font-heading font-semibold text-foreground">Aplicación de Meta</h2>
                     <p className="text-[13px] text-muted-foreground mt-0.5 truncate">
                         {setup?.configured
-                            ? <>Configured - app <code className="font-mono text-[11px] bg-muted px-1.5 py-0.5 rounded">{setup.metaAppId}</code></>
-                            : "Not configured - the engine is offline until setup is complete."}
+                            ? <>Configurada - aplicación <code className="font-mono text-[11px] bg-muted px-1.5 py-0.5 rounded">{setup.metaAppId}</code></>
+                            : "No configurada: el motor permanecerá inactivo hasta completar la configuración."}
                     </p>
                 </div>
                 <Link
@@ -187,7 +187,7 @@ function SettingsContent() {
                     )}
                 >
                     <Wrench className="w-3.5 h-3.5" />
-                    {setup?.configured ? "Setup Wizard" : "Complete setup"}
+                    {setup?.configured ? "Asistente de configuración" : "Completar configuración"}
                 </Link>
             </section>
 
@@ -195,9 +195,9 @@ function SettingsContent() {
             <section className="bg-card border border-border rounded-xl p-5 space-y-4">
                 <div className="flex items-center justify-between gap-4">
                     <div>
-                        <h2 className="text-[14px] font-heading font-semibold text-foreground">Instagram accounts</h2>
+                        <h2 className="text-[14px] font-heading font-semibold text-foreground">Cuentas de Instagram</h2>
                         <p className="text-[13px] text-muted-foreground mt-0.5">
-                            Business or Creator accounts only.
+                            Solo se admiten cuentas profesionales o de creador.
                         </p>
                     </div>
                     <button
@@ -206,7 +206,7 @@ function SettingsContent() {
                         className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-foreground text-background text-[13px] font-semibold hover:opacity-90 disabled:opacity-60 transition-opacity shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                     >
                         {connectingIG ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Instagram className="w-3.5 h-3.5" />}
-                        {connectingIG ? "Connecting…" : "Connect"}
+                        {connectingIG ? "Connecting…" : "Conectar"}
                     </button>
                 </div>
 
@@ -224,8 +224,8 @@ function SettingsContent() {
                                     <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg text-[12px] font-medium bg-destructive/10 text-destructive">
                                         <PauseCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                                         <span>
-                                            <b>Safety pause</b> - Instagram flagged sends, so DMs are paused
-                                            until {account.paused_until ? new Date(account.paused_until).toLocaleString() : "later"} to
+                                            <b>Pausa de seguridad</b>: Instagram detectó problemas en los envíos, por lo que los mensajes directos están pausados
+                                            until {account.paused_until ? new Date(account.paused_until).toLocaleString() : "más adelante"} to
                                             protect this account.
                                         </span>
                                     </div>
@@ -242,8 +242,8 @@ function SettingsContent() {
                                             <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                                             <span className="truncate">
                                                 {account.token_status === "expired"
-                                                    ? "Token expired - automations paused. Reconnect to resume."
-                                                    : `Token expires in ${account.token_days_remaining} day${account.token_days_remaining === 1 ? "" : "s"} - the cron auto-refreshes it, or refresh now.`}
+                                                    ? "Token caducado: automatizaciones pausadas. Vuelve a conectar la cuenta para reanudarlas."
+                                                    : `El token caduca en ${account.token_days_remaining} día${account.token_days_remaining === 1 ? "" : "s"}. El proceso automático lo renovará o puedes renovarlo ahora.`}
                                             </span>
                                         </div>
                                         {account.token_status === "expiring" ? (
@@ -286,7 +286,7 @@ function SettingsContent() {
                                                     : <AlertTriangle className={cn("w-3.5 h-3.5 shrink-0", account.token_status === "expired" ? "text-destructive" : "text-amber-500")} />}
                                             </div>
                                             <span className="text-[11px] text-muted-foreground">
-                                                Connected {new Date(account.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                                                Conectada {new Date(account.created_at).toLocaleDateString("es-PE", { month: "short", day: "numeric", year: "numeric" })}
                                             </span>
                                         </div>
                                     </div>
@@ -295,20 +295,20 @@ function SettingsContent() {
                                         <button
                                             onClick={() => handleCheckSubscription(account.id)}
                                             disabled={checkingSubId === account.id}
-                                            title="Check which webhook fields Meta has active for this account"
+                                            title="Comprobar qué eventos del webhook tiene activos Meta para esta cuenta"
                                             className="inline-flex items-center gap-1 h-7 px-2 text-[12px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
                                         >
                                             {checkingSubId === account.id ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-                                            {checkingSubId === account.id ? "Checking…" : "Check status"}
+                                            {checkingSubId === account.id ? "Checking…" : "Comprobar estado"}
                                         </button>
                                         <button
                                             onClick={() => handleResubscribe(account.id)}
                                             disabled={resubscribingId === account.id}
-                                            title="Re-sync the webhook subscription"
+                                            title="Volver a sincronizar la suscripción del webhook"
                                             className="inline-flex items-center gap-1 h-7 px-2 text-[12px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
                                         >
                                             {resubscribingId === account.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                                            {resubscribingId === account.id ? "Syncing…" : "Fix webhooks"}
+                                            {resubscribingId === account.id ? "Syncing…" : "Reparar webhooks"}
                                         </button>
                                         <button
                                             onClick={() => handleDisconnect(account.id)}
@@ -331,7 +331,7 @@ function SettingsContent() {
                                             : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
                                     )}>
                                         {subStatus[account.id] === null ? (
-                                            <span>Couldn&apos;t fetch subscription status from Meta.</span>
+                                            <span>No se pudo consultar el estado de la suscripción en Meta.</span>
                                         ) : (
                                             <div className="space-y-1">
                                                 <div className="flex items-center gap-3">
@@ -339,11 +339,11 @@ function SettingsContent() {
                                                     <span className="font-bold">{subStatus[account.id]?.hasMessages ? "✓ messages" : "✗ messages"}</span>
                                                 </div>
                                                 <div className="text-muted-foreground text-[10px]">
-                                                    {subStatus[account.id]?.subscribedFields.join(", ") || "none"}
+                                                    {subStatus[account.id]?.subscribedFields.join(", ") || "ninguno"}
                                                 </div>
                                                 {!subStatus[account.id]?.hasComments && (
                                                     <div className="text-[10px]">
-                                                        Comments aren&apos;t subscribed - use &ldquo;Fix webhooks&rdquo;, and check the Callback URL is verified in the Meta portal.
+                                                        Los comentarios no están suscritos. Usa «Reparar webhooks» y comprueba que la URL de devolución de llamada esté verificada en el portal de Meta.
                                                     </div>
                                                 )}
                                             </div>
@@ -355,7 +355,7 @@ function SettingsContent() {
                     ) : (
                         <div className="text-center py-8 text-[13px] text-muted-foreground">
                             <Instagram className="w-6 h-6 mx-auto mb-2 opacity-30" />
-                            <p>No accounts connected yet.</p>
+                            <p>Todavía no hay cuentas conectadas.</p>
                         </div>
                     )}
                 </div>
@@ -363,7 +363,7 @@ function SettingsContent() {
 
             {/* Account */}
             <section className="bg-card border border-border rounded-xl p-5 flex items-center justify-between">
-                <h2 className="text-[14px] font-heading font-semibold text-foreground">Session</h2>
+                <h2 className="text-[14px] font-heading font-semibold text-foreground">Sesión</h2>
                 <button
                     onClick={handleSignOut}
                     className="h-8 px-3 rounded-lg text-[13px] font-medium text-muted-foreground border border-border hover:text-destructive hover:border-destructive/40 transition-colors"

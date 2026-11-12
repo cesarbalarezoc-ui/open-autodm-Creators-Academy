@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
     Home,
@@ -21,14 +22,14 @@ import { AccountSwitcher } from "@/components/dashboard/AccountSwitcher";
 import { useUiStore } from "@/lib/store";
 
 const NAV = {
-    Workspace: [
-        { name: "Dashboard", href: "/dashboard", icon: Home, external: false },
-        { name: "Automations", href: "/automations", icon: Bot, external: false },
-        { name: "Analytics", href: "/analytics", icon: ChartNoAxesColumn, external: false },
+    "Mi espacio": [
+        { name: "Panel principal", href: "/dashboard", icon: Home, external: false },
+        { name: "Automatizaciones", href: "/automations", icon: Bot, external: false },
+        { name: "Estadísticas", href: "/analytics", icon: ChartNoAxesColumn, external: false },
     ],
-    System: [
-        { name: "Setup Wizard", href: "/setup", icon: Wrench, external: false },
-        { name: "Settings", href: "/settings", icon: Settings, external: false },
+    "Herramientas": [
+        { name: "Configurar Meta", href: "/setup", icon: Wrench, external: false },
+        { name: "Preferencias", href: "/settings", icon: Settings, external: false },
         { name: "GitHub", href: "https://github.com", icon: Github, external: true },
     ],
 };
@@ -108,31 +109,41 @@ export function Sidebar() {
             <button
                 onClick={() => setIsCollapsed(!isCollapsed)}
                 className="absolute -right-2.5 top-7 w-5 h-5 bg-card border border-border rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors z-50"
-                aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                aria-label={isCollapsed ? "Expandir menú" : "Contraer menú"}
             >
                 {isCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
             </button>
 
-            {/* Brand */}
-            <div className={cn(
-                "h-14 flex items-center border-b border-border transition-all",
-                isCollapsed ? "justify-center px-0" : "gap-2.5 px-4"
-            )}>
-                <LogoMark className="w-6 h-6 shrink-0" />
-                <AnimatePresence mode="popLayout">
-                    {!isCollapsed && (
-                        <motion.span
-                            initial={{ opacity: 0, x: -6 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -6 }}
-                            className="truncate"
-                        >
-                            <LogoWordmark className="text-[13px] tracking-[0.14em]" />
-                        </motion.span>
-                    )}
-                </AnimatePresence>
-            </div>
+            {/* CREATORS ACADEMY PRO BRAND */}
+            <div
+                className={cn(
+                    "min-h-[124px] flex flex-col items-center justify-center border-b border-border gap-1.5 px-3 py-3",
+                    isCollapsed && "min-h-[72px] px-0"
+                )}
+            >
+                {isCollapsed ? (
+                    <LogoMark className="w-7 h-7 shrink-0" />
+                ) : (
+                    <>
+                        <Image
+                            src="/creators-academy-pro-logo.png"
+                            alt="CREATORS ACADEMY PRO"
+                            width={2048}
+                            height={682}
+                            priority
+                            className="w-[200px] max-w-full h-auto object-contain"
+                        />
 
+                        <span className="text-[11px] font-bold tracking-[0.2em] text-cyan-300">
+                            PROSPECTOR AI
+                        </span>
+
+                        <span className="text-[9px] text-muted-foreground text-center">
+                            Herramienta exclusiva para miembros
+                        </span>
+                    </>
+                )}
+            </div>
             {/* Nav */}
             <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-none py-4">
                 <NavGroups collapsed={isCollapsed} threadId="nav-thread-desktop" />
@@ -200,7 +211,7 @@ export function MobileSidebar() {
                             <button
                                 onClick={close}
                                 className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                                aria-label="Close menu"
+                                aria-label="Cerrar menú"
                             >
                                 <X className="w-4 h-4" />
                             </button>
@@ -221,3 +232,5 @@ export function MobileSidebar() {
         </AnimatePresence>
     );
 }
+
+

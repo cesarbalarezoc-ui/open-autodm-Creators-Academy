@@ -1,12 +1,12 @@
 "use client";
 
 /**
- * Setup Wizard - from fresh deployment to verified Meta webhook, five steps:
+ * Asistente de configuración - from fresh deployment to verified Meta webhook, five steps:
  *  1. Create a Meta app
  *  2. Save Instagram app credentials (stored encrypted)
  *  3. Wire the Meta portal (webhook + login redirect)
- *  4. Enable the background engine (one SQL snippet)
- *  5. Understand who can trigger it (testers, going public)
+ *  4. Activa el motor en segundo plano (one SQL snippet)
+ *  5. Understy who can trigger it (testers, going public)
  */
 
 import { useState } from "react";
@@ -100,7 +100,7 @@ export default function SetupPage() {
     const [saveError, setSaveError] = useState<string | null>(null);
     const [justSaved, setJustSaved] = useState(false);
 
-    const handleSave = () => {
+    const hyleSave = () => {
         setSaveError(null);
         saveMutation.mutate(
             {
@@ -131,50 +131,50 @@ export default function SetupPage() {
                 <div>
                     <h1 className="text-xl font-heading font-semibold tracking-tight text-foreground flex items-center gap-2">
                         <Wrench className="w-4.5 h-4.5 w-[18px] h-[18px] text-muted-foreground" />
-                        Setup Wizard
+                        Asistente de configuración
                     </h1>
                     <p className="text-[13px] text-muted-foreground mt-1 max-w-md">
-                        Connect your own free Meta developer app. Everything you enter is stored
-                        encrypted in your Supabase database.
+                        Conecta tu propia aplicación gratuita de desarrollador de Meta. Toda la información que ingreses se almacena
+                        cifrada en tu base de datos de Supabase.
                     </p>
                 </div>
                 {configured && (
                     <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-secondary bg-secondary/10 px-2.5 py-1 rounded-full shrink-0 mt-1">
-                        <ShieldCheck className="w-3 h-3" /> Configured
+                        <ShieldCheck className="w-3 h-3" /> Configurado
                     </span>
                 )}
             </div>
 
             {/* Step 1 */}
-            <StepCard step={1} title="Create your Meta app" icon={ExternalLink} done={configured}>
+            <StepCard step={1} title="Crea tu aplicación de Meta" icon={ExternalLink} done={configured}>
                 <NumberedList items={[
-                    <>Go to <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline underline-offset-2">developers.facebook.com/apps</a> and click <b>Create App</b>.</>,
-                    <>Use case <b>Other</b> → app type <b>Business</b>.</>,
-                    <>In the app dashboard: <b>Instagram → Set up</b> (adds &ldquo;Instagram API with Instagram Login&rdquo;).</>,
-                    <>Go to <b>Instagram → API setup with Instagram login → 3. Set up Instagram business login</b> and copy the <b>Instagram app ID</b> and <b>Instagram app secret</b> shown there. Not the pair under App settings → Basic - those belong to the parent Meta app and Instagram login rejects them with &ldquo;Invalid platform app&rdquo;.</>,
-                    <>Your Instagram must be a <b>Business or Creator</b> account (switch in the app: Settings → Account type).</>,
+                    <>Ve a <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline underline-offset-2">developers.facebook.com/apps</a> y haz clic en <b>Create App (Crear aplicación)</b>.</>,
+                    <>Caso de uso <b>Other (Otro)</b> → tipo de aplicación <b>Business (Empresa)</b>.</>,
+                    <>En el panel de tu aplicación: <b>Instagram → Set up</b> (adds &ldquo;Instagram API with Instagram Login&rdquo;).</>,
+                    <>Ve a <b>Instagram → API setup with Instagram login → 3. Set up Instagram business login</b> y copia el <b>ID de la aplicación de Instagram</b> y el <b>secreto de la aplicación de Instagram</b> que aparecen allí. No utilices los datos de App settings → Basic - esos datos pertenecen a la aplicación principal de Meta y el inicio de sesión de Instagram los rechazará con el error &ldquo;Invalid platform app&rdquo;.</>,
+                    <>Tu Instagram debe ser una cuenta <b>Business or Creator</b> (puedes cambiarla desde Instagram en: Settings → Account type).</>,
                 ]} />
                 <div className="mt-4 flex items-start gap-2 text-[12px] text-muted-foreground bg-muted/50 rounded-lg px-3 py-2.5">
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-500" />
                     <span>
-                        Your app starts in <b>Development mode</b> - perfect for building and testing. In dev mode, automations
-                        work for accounts that hold a <b>role on your app</b> (you + testers - see Step 5). To let the
-                        general public trigger them, submit the free Meta <b>App Review</b> once testing passes.
+                        Tu aplicación comienza en <b>Development mode</b> - ideal para crear y realizar pruebas. En este modo, las automatizaciones
+                        funcionan con las cuentas que tienen un <b>role on your app</b> (tu cuenta y los evaluadores; consulta el paso 5). Para permitir que el
+                        público en general las active, solicita la revisión gratuita de Meta <b>App Review</b> una vez finalizadas las pruebas.
                     </span>
                 </div>
             </StepCard>
 
             {/* Step 2 */}
-            <StepCard step={2} title="Save your app credentials" icon={KeyRound} done={configured && !justSaved}>
+            <StepCard step={2} title="Guarda las credenciales de tu aplicación" icon={KeyRound} done={configured && !justSaved}>
                 {configured && (
                     <div className="mb-4 flex items-center gap-2 text-[12px] font-medium text-secondary bg-secondary/10 rounded-lg px-3 py-2.5">
                         <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                        <span>Saved for app <code className="font-mono font-semibold">{setup?.metaAppId}</code>. Re-enter below only to change them.</span>
+                        <span>Guardado para la aplicación <code className="font-mono font-semibold">{setup?.metaAppId}</code>. Vuelve a ingresarlas abajo únicamente si deseas cambiarlas.</span>
                     </div>
                 )}
                 <div className="space-y-3">
                     <div>
-                        <label className="micro-label block mb-1">Instagram app ID</label>
+                        <label className="micro-label block mb-1">ID de la aplicación de Instagram</label>
                         <input
                             value={appId}
                             onChange={(e) => setAppId(e.target.value)}
@@ -183,49 +183,49 @@ export default function SetupPage() {
                         />
                     </div>
                     <div>
-                        <label className="micro-label block mb-1">Instagram app secret</label>
+                        <label className="micro-label block mb-1">Secreto de la aplicación de Instagram</label>
                         <input
                             type="password"
                             value={appSecret}
                             onChange={(e) => setAppSecret(e.target.value)}
-                            placeholder="32-character hex secret"
+                            placeholder="Secreto hexadecimal de 32 caracteres"
                             className={inputCls}
                         />
                         <p className="text-[11px] text-muted-foreground mt-1">
-                            Encrypted before it touches the database. Never logged, never shown again.
+                            Se cifra antes de guardarse en la base de datos. Nunca se registra ni vuelve a mostrarse.
                         </p>
                     </div>
                     <div>
-                        <label className="micro-label block mb-1">Facebook app secret <span className="normal-case font-normal opacity-70">(optional)</span></label>
+                        <label className="micro-label block mb-1">Secreto de la aplicación de Facebook <span className="normal-case font-normal opacity-70">(opcional)</span></label>
                         <input
                             type="password"
                             value={fbAppSecret}
                             onChange={(e) => setFbAppSecret(e.target.value)}
-                            placeholder="Only if webhook signature checks fail"
+                            placeholder="Solo si falla la verificación de la firma del webhook"
                             className={inputCls}
                         />
                         <p className="text-[11px] text-muted-foreground mt-1">
-                            Meta signs webhooks with either secret depending on app type. If the debug panel shows
-                            &ldquo;signature mismatch&rdquo; on real events, paste the App Secret from App settings → Basic here.
+                            Meta firma los webhooks con uno de los dos secretos, según el tipo de aplicación. Si el panel de depuración muestra
+                            &ldquo;signature mismatch&rdquo; en eventos reales, pega aquí el secreto de App settings → Basic here.
                         </p>
                     </div>
                     {saveError && <p className="text-[12px] text-destructive font-medium">{saveError}</p>}
-                    {justSaved && <p className="text-[12px] text-secondary font-medium">Saved. Continue with Step 3.</p>}
+                    {justSaved && <p className="text-[12px] text-secondary font-medium">Guardado. Continúa con el paso 3.</p>}
                     <button
-                        onClick={handleSave}
+                        onClick={hyleSave}
                         disabled={saveMutation.isPending || !appId.trim() || !appSecret.trim()}
                         className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-foreground text-background text-[13px] font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                     >
                         {saveMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <KeyRound className="w-3.5 h-3.5" />}
-                        {saveMutation.isPending ? "Saving…" : "Save credentials"}
+                        {saveMutation.isPending ? "Guardyo…" : "Guardar credenciales"}
                     </button>
                 </div>
             </StepCard>
 
             {/* Step 3 */}
-            <StepCard step={3} title="Wire up the Meta portal" icon={Webhook}>
+            <StepCard step={3} title="Configura el portal de Meta" icon={Webhook}>
                 {!configured && !justSaved ? (
-                    <p className="text-[13px] text-muted-foreground">Complete Step 2 first - your webhook verify token is generated when credentials are saved.</p>
+                    <p className="text-[13px] text-muted-foreground">Primero completa el paso 2. El token de verificación del webhook se genera cuyo guardas las credenciales.</p>
                 ) : (
                     <div className="space-y-5">
                         <div>
@@ -233,11 +233,11 @@ export default function SetupPage() {
                                 A. Webhooks - <span className="text-muted-foreground font-normal">Instagram → API setup with Instagram login → 2. Configure webhooks</span>
                             </p>
                             <div className="space-y-2.5">
-                                <CopyField label="Callback URL" value={setup?.webhookUrl ?? ""} />
-                                <CopyField label="Verify token" value={setup?.webhookVerifyToken ?? ""} />
+                                <CopyField label="URL de devolución de llamada" value={setup?.webhookUrl ?? ""} />
+                                <CopyField label="Token de verificación" value={setup?.webhookVerifyToken ?? ""} />
                             </div>
                             <p className="text-[11px] text-muted-foreground mt-2">
-                                Click <b>Verify and save</b>, then subscribe to <b>comments</b> and <b>messages</b>.
+                                Haz clic en <b>Verify y save (Verificar y guardar)</b> y suscríbete a los eventos <b>comments (comentarios)</b> y <b>messages (mensajes)</b>.
                             </p>
                         </div>
                         <div className="h-px bg-border" />
@@ -247,7 +247,7 @@ export default function SetupPage() {
                             </p>
                             <CopyField label="OAuth redirect URI" value={setup?.oauthRedirectUri ?? ""} />
                             <p className="text-[11px] text-muted-foreground mt-2">
-                                Must match character-for-character.
+                                Debe coincidir exactamente, carácter por carácter.
                             </p>
                         </div>
                     </div>
@@ -255,12 +255,12 @@ export default function SetupPage() {
             </StepCard>
 
             {/* Step 4 */}
-            <StepCard step={4} title="Enable the background engine" icon={Clock3}>
+            <StepCard step={4} title="Activa el motor en segundo plano" icon={Clock3}>
                 <p className="text-[13px] text-muted-foreground mb-3 leading-relaxed">
-                    Most DMs send instantly from the webhook. This cron delivers the rest - rate-limited overflow,
-                    retries, and automatic token refresh. In <b>Supabase → SQL Editor</b>, replace{" "}
+                    La mayoría de los mensajes directos se envían inmediatamente mediante el webhook. Este proceso cron se encarga del resto: mensajes pendientes por límites de envío,
+                    reintentos y renovación automática de tokens. En <b>Supabase → SQL Editor</b>, reemplaza{" "}
                     <code className="font-mono text-[11px] bg-muted px-1 rounded">YOUR_CRON_SECRET</code> with your
-                    deployment&apos;s CRON_SECRET and run:
+                    deployment&apos;s CRON_SECRET y run:
                 </p>
                 <div className="relative">
                     <pre className="text-[11px] font-mono bg-zinc-950 text-zinc-300 rounded-lg p-3.5 overflow-x-auto whitespace-pre border border-border">
@@ -269,38 +269,38 @@ export default function SetupPage() {
                     <button
                         onClick={() => void navigator.clipboard.writeText(setup?.cronSnippet ?? "")}
                         className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-400 transition-colors"
-                        title="Copy SQL"
+                        title="Copiar SQL"
                     >
                         <Copy className="w-3 h-3" />
                     </button>
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-2">
-                    Verify with <code className="font-mono bg-muted px-1 rounded">select * from cron.job;</code> - you should see <code className="font-mono bg-muted px-1 rounded">open-autodm-process-jobs</code>.
+                    Verifica con <code className="font-mono bg-muted px-1 rounded">select * from cron.job;</code> - deberías encontrar <code className="font-mono bg-muted px-1 rounded">open-autodm-process-jobs</code>.
                 </p>
             </StepCard>
 
             {/* Step 5 */}
-            <StepCard step={5} title="Who can trigger it" icon={Users}>
+            <StepCard step={5} title="Quién puede activar las automatizaciones" icon={Users}>
                 <div className="space-y-4 text-[13px] text-foreground/90 leading-relaxed">
                     <p>
-                        In <b>Development mode</b>, Instagram only delivers events for accounts holding a role on your app -
-                        on <b>both sides</b>: the account you connect <i>and</i> the audience accounts whose comments, DMs,
-                        or story replies trigger automations. A stranger&apos;s comment produces no webhook at all.
+                        In <b>Development mode</b>, Instagram solo envía eventos de las cuentas que tienen un rol en tu aplicación:
+                        en <b>ambos lados</b>: la cuenta que conectas <i>y</i> the audience accounts whose comments, DMs,
+                        o respuestas a historias activan automatizaciones. Los comentarios de personas externas no generan ningún webhook.
                     </p>
                     <div>
-                        <p className="font-medium text-foreground mb-2">Add a tester account:</p>
+                        <p className="font-medium text-foreground mb-2">Añadir una cuenta de prueba:</p>
                         <NumberedList items={[
-                            <>Meta portal → your app → <b>App roles → Roles → Add people</b>.</>,
-                            <>Role <b>Instagram Tester</b> → their Instagram username → send the invite.</>,
-                            <>They accept <b>inside the Instagram app</b>: Settings → Website permissions / Apps and websites → <b>Tester invites → Accept</b>. Until then, their events are invisible to your webhook.</>,
+                            <>Meta portal → your app → <b>App roles → Roles → Add people (Añadir personas)</b>.</>,
+                            <>Selecciona el rol <b>Instagram Tester (Evaluador de Instagram)</b> → el nombre de usuario de Instagram de esa persona → y envía la invitación.</>,
+                            <>La persona debe aceptar la invitación <b>desde la aplicación de Instagram</b>: Settings → Website permissions / Apps y websites → <b>Tester invites → Accept</b>. Hasta que la acepte, sus eventos no serán visibles para tu webhook.</>,
                         ]} />
                     </div>
                     <div className="flex items-start gap-2 text-[12px] text-muted-foreground bg-muted/50 rounded-lg px-3 py-2.5">
                         <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-500" />
                         <span>
-                            <b>Going public:</b> to fire on comments from anyone, request <b>Advanced Access</b> via Meta&apos;s free
-                            App Review - upload a short screencast of your working flow. Typically approved in days; nothing in
-                            this app changes afterwards.
+                            <b>Para habilitar el acceso público:</b> para que las automatizaciones se activen con comentarios de cualquier persona, solicita <b>Advanced Access</b> mediante la revisión gratuita de Meta
+                            App Review - sube una grabación breve de tu automatización funcionando. La aprobación suele tardar unos días; después no será necesario modificar nada en
+                            esta aplicación.
                         </span>
                     </div>
                 </div>
@@ -314,10 +314,10 @@ export default function SetupPage() {
                 >
                     <CheckCircle2 className="w-4.5 h-4.5 w-[18px] h-[18px] text-secondary shrink-0 mt-0.5" />
                     <div>
-                        <p className="text-[13px] font-semibold text-foreground">Setup complete - connect Instagram next</p>
+                        <p className="text-[13px] font-semibold text-foreground">Configuración completada: conecta Instagram</p>
                         <p className="text-[13px] text-muted-foreground mt-0.5">
-                            Go to <a href="/settings" className="text-primary font-medium underline underline-offset-2">Settings</a> and
-                            click <b>Connect</b>, using the Instagram account that owns (or tests) your Meta app.
+                            Ve a <a href="/settings" className="text-primary font-medium underline underline-offset-2">Settings</a> y
+                            haz clic en <b>Connect (Conectar)</b> utilizando la cuenta de Instagram vinculada a tu aplicación de Meta.
                         </p>
                     </div>
                 </motion.div>

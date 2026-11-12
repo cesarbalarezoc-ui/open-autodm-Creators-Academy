@@ -21,10 +21,10 @@ export function SelectTypeStep({ onSelect, selectedType }: SelectTypeStepProps) 
             <div className="max-w-2xl w-full mx-auto space-y-8 pb-8">
                 <div className="text-center space-y-1.5 pt-6">
                     <h2 className="text-xl font-heading font-semibold tracking-tight text-foreground">
-                        What starts this automation?
+                        ¿Qué activará esta automatización?
                     </h2>
                     <p className="text-[13px] text-muted-foreground max-w-md mx-auto">
-                        Pick a trigger - you&apos;ll configure keywords and replies next.
+                        Selecciona un activador. Después configurarás las palabras clave y las respuestas.
                     </p>
                 </div>
 
@@ -63,7 +63,7 @@ export function SelectTypeStep({ onSelect, selectedType }: SelectTypeStepProps) 
                                             </h3>
                                             {!type.available && (
                                                 <span className="text-[9px] font-semibold uppercase tracking-widest bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">
-                                                    Soon
+                                                    Próximamente
                                                 </span>
                                             )}
                                         </div>

@@ -3,7 +3,7 @@
 /**
  * Sidebar account switcher - pick which connected Instagram account the whole
  * console is looking at. Switching is instant (client state); every list on
- * every page re-scopes to the chosen account. "Add account" runs the same
+ * every page re-scopes to the chosen account. "Añadir cuenta" runs the same
  * OAuth connect flow as Settings.
  */
 
@@ -61,7 +61,7 @@ export function AccountSwitcher({ isCollapsed }: { isCollapsed: boolean }) {
             const { url } = await apiClient<{ url: string }>("/instagram/connect");
             window.location.href = url;
         } catch (err) {
-            setConnectError(err instanceof ApiError ? err.message : "Couldn't start the connection");
+            setConnectError(err instanceof ApiError ? err.message : "No se pudo iniciar la conexión");
             setConnecting(false);
         }
     };
@@ -77,7 +77,7 @@ export function AccountSwitcher({ isCollapsed }: { isCollapsed: boolean }) {
                     "w-full flex items-center rounded-lg p-2 hover:bg-muted/60 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
                     isCollapsed ? "justify-center" : "gap-2.5"
                 )}
-                title={isCollapsed ? (account ? `@${account.username}` : "Accounts") : undefined}
+                title={isCollapsed ? (account ? `@${account.username}` : "Cuentas") : undefined}
             >
                 <AccountAvatar account={account} />
                 {!isCollapsed && (
@@ -87,13 +87,13 @@ export function AccountSwitcher({ isCollapsed }: { isCollapsed: boolean }) {
                                 <>
                                     <span className="text-[12px] font-medium text-foreground truncate leading-tight">@{account.username}</span>
                                     <span className="text-[10px] text-muted-foreground leading-tight">
-                                        {accounts.length > 1 ? `${accounts.length} accounts` : "Connected"}
+                                        {accounts.length > 1 ? `${accounts.length} cuentas` : "Conectada"}
                                     </span>
                                 </>
                             ) : (
                                 <>
-                                    <span className="text-[12px] font-medium text-foreground leading-tight">No account</span>
-                                    <span className="text-[10px] text-muted-foreground leading-tight">Connect Instagram</span>
+                                    <span className="text-[12px] font-medium text-foreground leading-tight">Sin cuenta conectada</span>
+                                    <span className="text-[10px] text-muted-foreground leading-tight">Conectar Instagram</span>
                                 </>
                             )}
                         </div>
@@ -140,7 +140,7 @@ export function AccountSwitcher({ isCollapsed }: { isCollapsed: boolean }) {
                                         <div className="flex flex-col min-w-0 flex-1">
                                             <span className="text-[12.5px] font-medium text-foreground truncate leading-tight">@{a.username}</span>
                                             <span className="text-[10px] text-muted-foreground leading-tight">
-                                                {a.is_paused ? "Safety pause" : a.token_status === "expired" ? "Token expired" : "Active"}
+                                                {a.is_paused ? "Pausa de seguridad" : a.token_status === "expired" ? "Token vencido" : "Activa"}
                                             </span>
                                         </div>
                                         {isActive && <Check className="w-3.5 h-3.5 text-foreground shrink-0" />}
@@ -155,7 +155,7 @@ export function AccountSwitcher({ isCollapsed }: { isCollapsed: boolean }) {
                                 className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[12.5px] font-medium text-foreground hover:bg-muted/60 disabled:opacity-60 transition-colors"
                             >
                                 {connecting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-                                {connecting ? "Redirecting…" : "Add account"}
+                                {connecting ? "Redirigiendo…" : "Añadir cuenta"}
                             </button>
                             {connectError && <p className="px-2 pb-1 text-[11px] text-destructive">{connectError}</p>}
                         </div>

@@ -190,23 +190,42 @@ async function checkRateLimit(db: SupabaseClient, accountId: string): Promise<vo
     p_account_id: accountId,
     p_limit: DM_LIMIT_PER_HOUR,
   });
+
   if (error) {
-    // Fail open with a warning - better to send than silently drop on a DB blip
-    logger.error({ err: error, accountId }, 'Rate limiter RPC error - allowing send');
-    return;
+    logger.error(
+      { err: error, accountId },
+      'Rate limiter RPC error - blocking send for safety'
+    );
+    throw new Error('Rate limit verification failed - send blocked');
   }
-  const row = (data as Array<{ allowed: boolean; current_count: number; retry_after_seconds: number }> | null)?.[0];
+
+  const row = (data as Array<{
+    allowed: boolean;
+    current_count: number;
+    retry_after_seconds: number;
+  }> | null)?.[0];
+
   if (row && !row.allowed) {
-    debugLog('worker', 'warn', 'rate_limit_check', 'skipped',
+    debugLog(
+      'worker',
+      'warn',
+      'rate_limit_check',
+      'skipped',
       `Rate limit reached (${row.current_count}/${DM_LIMIT_PER_HOUR}/h) - delaying ${Math.ceil(row.retry_after_seconds / 60)}min`,
-      { accountId, currentCount: row.current_count });
+      { accountId, currentCount: row.current_count }
+    );
     throw new RateLimitDelay(row.retry_after_seconds * 1000, row.current_count);
   }
-  debugLog('worker', 'info', 'rate_limit_check', 'ok', `Rate limit OK - ${row?.current_count ?? '?'}/${DM_LIMIT_PER_HOUR} this hour`, {
-    accountId,
-  });
-}
 
+  debugLog(
+    'worker',
+    'info',
+    'rate_limit_check',
+    'ok',
+    `Rate limit OK - ${row?.current_count ?? '?'}/${DM_LIMIT_PER_HOUR} this hour`,
+    { accountId }
+  );
+}
 /** Circuit breaker: skip sends while the account is paused. */
 function assertAccountNotPaused(account: InstagramAccountRow): void {
   if (account.paused_until && new Date(account.paused_until).getTime() > Date.now()) {
@@ -286,6 +305,7 @@ export async function processAutoDmJob(payload: AutoDmJobPayload, attempt: numbe
     .from('automations')
     .select('*')
     .eq('id', payload.automationId)
+    .eq('instagram_account_id', payload.instagramAccountId)
     .eq('is_active', true)
     .single<AutomationRow>();
   if (!automation) {
@@ -593,6 +613,22 @@ export async function processFollowUpDmJob(payload: AutoDmJobPayload): Promise<v
     debugLog('worker', 'warn', 'session_verify', 'error', `Session ${payload.sessionId} not found`, {});
     return;
   }
+  // Verify that the session belongs to this automation, account and audience.
+  if (
+    session.automation_id !== payload.automationId ||
+    session.instagram_account_id !== payload.instagramAccountId ||
+    session.audience_ig_user_id !== payload.triggerUserId
+  ) {
+    debugLog(
+      'worker',
+      'error',
+      'session_verify',
+      'error',
+      'Session ownership mismatch - follow-up rejected',
+      { sessionId: payload.sessionId }
+    );
+    return;
+  }
   if (session.completed as boolean) {
     debugLog('worker', 'info', 'session_verify', 'skipped', `Session ${payload.sessionId} already completed`, {});
     return;
@@ -612,11 +648,12 @@ export async function processFollowUpDmJob(payload: AutoDmJobPayload): Promise<v
 
   // ── 2: Load automation + account, breaker + rate limit ───────────────────
   const { data: automation } = await db
-    .from('automations')
-    .select('dm_responses, dm_opening_message_button_link, ask_to_follow_enabled, ask_to_follow_message, ask_to_follow_visit_profile_button, ask_to_follow_confirm_button')
-    .eq('id', payload.automationId)
-    .eq('is_active', true)
-    .single<AutomationRow>();
+  .from('automations')
+  .select('dm_responses, dm_opening_message_button_link, ask_to_follow_enabled, ask_to_follow_message, ask_to_follow_visit_profile_button, ask_to_follow_confirm_button')
+  .eq('id', payload.automationId)
+  .eq('instagram_account_id', payload.instagramAccountId)
+  .eq('is_active', true)
+  .single<AutomationRow>();
   if (!automation) {
     debugLog('worker', 'warn', 'automation_fetch', 'skipped', `Automation ${payload.automationId} inactive - completing session`, {});
     await db.from('automation_sessions').update({ completed: true }).eq('id', payload.sessionId);

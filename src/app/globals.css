@@ -3,8 +3,8 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-  --color-primary-base: #F97316;
-  --color-secondary-base: #22C55E;
+  --color-primary-base: #2563EB;
+  --color-secondary-base: #D946EF;
   --color-danger-base: #EF4444;
 
   --color-background: var(--background);
@@ -27,82 +27,94 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-  --font-heading: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
 
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
 }
 
-:root {
-  /* LIGHT - quiet paper console */
-  --background: #FAFAFA;
-  --foreground: #121215;
+/* DEFAULT THEME - PROSPECTOR AI */
+:root,
+.dark {
+  color-scheme: dark;
 
-  --card: #FFFFFF;
-  --card-foreground: #121215;
+  --background: #080B18;
+  --foreground: #F5F7FF;
 
-  --popover: #FFFFFF;
-  --popover-foreground: #121215;
+  --card: #10162A;
+  --card-foreground: #F5F7FF;
 
-  --primary: #F97316;
+  --popover: #111A32;
+  --popover-foreground: #F5F7FF;
+
+  --primary: #2463EB;
   --primary-foreground: #FFFFFF;
 
-  --secondary: #16A34A;
+  --secondary: #30204D;
   --secondary-foreground: #FFFFFF;
 
-  --muted: #F1F1F3;
-  --muted-foreground: #63636C;
+  --muted: #171F38;
+  --muted-foreground: #A6B0CC;
 
-  --accent: #F1F1F3;
-  --accent-foreground: #121215;
-
-  --destructive: #DC2626;
-  --destructive-foreground: #FFFFFF;
-
-  --border: #E7E7EA;
-  --input: #E7E7EA;
-  --ring: #F97316;
-
-  --radius: 0.625rem;
-}
-
-.dark {
-  /* DARK - near-black console, hairline borders */
-  --background: #0A0A0B;
-  --foreground: #F3F3F5;
-
-  --card: #101013;
-  --card-foreground: #F3F3F5;
-
-  --popover: #16161A;
-  --popover-foreground: #F3F3F5;
-
-  --primary: #F97316;
-  --primary-foreground: #FFFFFF;
-
-  --secondary: #22C55E;
-  --secondary-foreground: #0A0A0B;
-
-  --muted: #17171B;
-  --muted-foreground: #9C9CA6;
-
-  --accent: #17171B;
-  --accent-foreground: #F3F3F5;
+  --accent: #18264A;
+  --accent-foreground: #FFFFFF;
 
   --destructive: #EF4444;
   --destructive-foreground: #FFFFFF;
 
-  --border: #232329;
-  --input: #232329;
-  --ring: #F97316;
+  --border: #25345B;
+  --input: #1C2948;
+  --ring: #00D9FF;
+
+  --radius: 0.75rem;
+
+  --brand-blue: #245BFF;
+  --brand-cyan: #00D9FF;
+  --brand-magenta: #F12DFF;
+  --brand-violet: #802EFF;
 }
 
+/* LIGHT THEME */
+.light {
+  color-scheme: light;
+
+  --background: #F4F6FC;
+  --foreground: #11182B;
+
+  --card: #FFFFFF;
+  --card-foreground: #11182B;
+
+  --popover: #FFFFFF;
+  --popover-foreground: #11182B;
+
+  --primary: #245BFF;
+  --primary-foreground: #FFFFFF;
+
+  --secondary: #F3E8FF;
+  --secondary-foreground: #5825A8;
+
+  --muted: #E9EDF6;
+  --muted-foreground: #606B83;
+
+  --accent: #E5EDFF;
+  --accent-foreground: #172B57;
+
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+
+  --border: #D8DFEC;
+  --input: #D8DFEC;
+  --ring: #008DFF;
+}
+
+/* BASE */
 @layer base {
   * {
     border-color: var(--border);
   }
+
   body {
     background-color: var(--background);
     color: var(--foreground);
@@ -111,15 +123,47 @@
   }
 }
 
-/* The one warm thread - the Instagram sunset, used thin and sparingly */
+/* CREATORS ACADEMY PRO BRAND GRADIENTS */
 .ig-thread {
-  background-image: linear-gradient(90deg, #f09433, #e6683c, #dc2743, #bc1888);
-}
-.ig-ring {
-  background-image: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #bc1888);
+  background-image: linear-gradient(
+    90deg,
+    #245BFF,
+    #00D9FF,
+    #802EFF,
+    #F12DFF
+  );
 }
 
-/* Section micro-label - the console's structural voice */
+.ig-ring {
+  background-image: linear-gradient(
+    45deg,
+    #245BFF,
+    #00D9FF,
+    #802EFF,
+    #F12DFF
+  );
+}
+
+/* BRAND GLOW */
+.brand-glow {
+  box-shadow:
+    0 0 12px rgba(0, 217, 255, 0.15),
+    0 0 24px rgba(129, 46, 255, 0.10);
+}
+
+.brand-gradient-text {
+  background: linear-gradient(
+    90deg,
+    #00D9FF,
+    #4385FF,
+    #F12DFF
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+/* SECTION LABELS */
 .micro-label {
   font-size: 11px;
   font-weight: 600;
@@ -142,12 +186,15 @@
 .scrollbar-none {
   scrollbar-width: none;
 }
+
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

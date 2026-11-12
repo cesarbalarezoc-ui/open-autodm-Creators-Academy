@@ -1,12 +1,6 @@
 /**
  * Setup Wizard API.
- *
- * GET  → current setup status + the exact values to paste into the Meta portal
- *        (webhook URL, verify token, OAuth redirect URI, pg_cron snippet).
- * POST → save Meta App ID + App Secret (secret is AES-256-GCM encrypted
- *        before it touches the DB). Generates a webhook verify token on
- *        first save and PRESERVES it on later saves so Meta's existing
- *        webhook subscription keeps validating.
+ * Only authorized administrators can read or modify global Meta settings.
  */
 
 import { z } from 'zod';
@@ -14,7 +8,7 @@ import { getAuthenticatedUser, unauthorized } from '@/lib/auth';
 import { createServiceClient } from '@/lib/supabase/service';
 import { getMetaSettings, saveMetaSettings } from '@/lib/settings';
 import { randomToken } from '@/lib/crypto';
-import { getAppUrl, getEnv } from '@/lib/env';
+import { getAppUrl, getEnv, isAdminUser } from '@/lib/env';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -22,13 +16,19 @@ export const dynamic = 'force-dynamic';
 const SaveSetupSchema = z.object({
   metaAppId: z.string().regex(/^\d{5,25}$/, 'Meta App ID must be numeric'),
   metaAppSecret: z.string().regex(/^[0-9a-f]{32}$/i, 'Meta App Secret must be 32 hex characters'),
-  // Optional: some Meta apps sign webhooks with the Facebook app secret.
   metaFbAppSecret: z
     .string()
     .regex(/^[0-9a-f]{32}$/i, 'Facebook App Secret must be 32 hex characters')
     .optional()
     .or(z.literal('').transform(() => undefined)),
 });
+
+function forbidden(): Response {
+  return Response.json(
+    { error: 'Administrator access required' },
+    { status: 403 }
+  );
+}
 
 function cronSnippet(appUrl: string): string {
   return `-- Run this ONCE in your Supabase project's SQL Editor.
@@ -54,34 +54,51 @@ export async function GET(request: Request): Promise<Response> {
   const user = await getAuthenticatedUser(request);
   if (!user) return unauthorized();
 
-  const settings = await getMetaSettings();
-  const appUrl = getAppUrl(request);
+  // Only explicitly configured administrators may read global Meta settings.
+  if (!isAdminUser(user.id)) return forbidden();
 
-  // Read the raw row too - settings is null until fully configured, but a
-  // partially-saved verify token should survive wizard re-entry.
-  const db = createServiceClient();
-  const { data: row } = await db
-    .from('app_settings')
-    .select('meta_app_id, webhook_verify_token, setup_completed')
-    .eq('id', 1)
-    .maybeSingle();
+  try {
+    getEnv();
 
-  return Response.json({
-    configured: !!settings,
-    metaAppId: (row?.meta_app_id as string | null) ?? null,
-    webhookVerifyToken: (row?.webhook_verify_token as string | null) ?? null,
-    webhookUrl: `${appUrl}/api/webhook`,
-    oauthRedirectUri: `${appUrl}/api/instagram/callback`,
-    appUrl,
-    cronSnippet: cronSnippet(appUrl),
-  });
+    const settings = await getMetaSettings();
+    const appUrl = getAppUrl(request);
+
+    const db = createServiceClient();
+    const { data: row, error } = await db
+      .from('app_settings')
+      .select('meta_app_id, webhook_verify_token, setup_completed')
+      .eq('id', 1)
+      .maybeSingle();
+
+    if (error) {
+      console.error('[api:setup] Failed to read app settings');
+      return Response.json({ error: 'Failed to read setup settings' }, { status: 500 });
+    }
+
+    return Response.json({
+      configured: !!settings,
+      metaAppId: row?.meta_app_id ?? null,
+      webhookVerifyToken: row?.webhook_verify_token ?? null,
+      webhookUrl: `${appUrl}/api/webhook`,
+      oauthRedirectUri: `${appUrl}/api/instagram/callback`,
+      appUrl,
+      cronSnippet: cronSnippet(appUrl),
+    });
+  } catch {
+    console.error('[api:setup] Failed to load setup configuration');
+    return Response.json({ error: 'Failed to load setup configuration' }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request): Promise<Response> {
   const user = await getAuthenticatedUser(request);
   if (!user) return unauthorized();
 
+  // Only explicitly configured administrators may modify global Meta settings.
+  if (!isAdminUser(user.id)) return forbidden();
+
   let body: unknown;
+
   try {
     body = await request.json();
   } catch {
@@ -89,26 +106,35 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const parsed = SaveSetupSchema.safeParse(body);
+
   if (!parsed.success) {
-    const detail = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
-    return Response.json({ error: `Validation failed - ${detail}` }, { status: 400 });
+    const detail = parsed.error.issues
+      .map((i) => `${i.path.join('.')}: ${i.message}`)
+      .join('; ');
+
+    return Response.json(
+      { error: `Validation failed - ${detail}` },
+      { status: 400 }
+    );
   }
 
   try {
-    // Ensure env is valid before accepting credentials (fail loudly, but with
-    // the actual list of missing vars so the self-hoster can fix it).
     getEnv();
 
-    // Preserve the existing verify token if one was generated before -
-    // regenerating it would silently break the webhook registered in Meta.
     const db = createServiceClient();
-    const { data: existing } = await db
+    const { data: existing, error: readError } = await db
       .from('app_settings')
       .select('webhook_verify_token')
       .eq('id', 1)
       .maybeSingle();
 
-    const verifyToken = (existing?.webhook_verify_token as string | null) ?? randomToken(16);
+    if (readError) {
+      console.error('[api:setup] Failed to read existing verification token');
+      return Response.json({ error: 'Failed to read setup settings' }, { status: 500 });
+    }
+
+    const verifyToken =
+      (existing?.webhook_verify_token as string | null) ?? randomToken(16);
 
     await saveMetaSettings({
       metaAppId: parsed.data.metaAppId,
@@ -118,25 +144,19 @@ export async function POST(request: Request): Promise<Response> {
     });
 
     const appUrl = getAppUrl(request);
+
     return Response.json({
       success: true,
       webhookVerifyToken: verifyToken,
       webhookUrl: `${appUrl}/api/webhook`,
       oauthRedirectUri: `${appUrl}/api/instagram/callback`,
     });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    // The single most common self-hosting mistake: migrations not applied yet.
-    if (/app_settings/i.test(message) && /(find|exist|schema)/i.test(message)) {
-      return Response.json(
-        {
-          error:
-            'Database schema is missing - the migrations have not been applied to your Supabase project. ' +
-            'Run: supabase link --project-ref <your-ref> && supabase db push, then try again.',
-        },
-        { status: 500 }
-      );
-    }
-    return Response.json({ error: message }, { status: 500 });
+  } catch {
+    console.error('[api:setup] Failed to save Meta settings');
+
+    return Response.json(
+      { error: 'Failed to save setup configuration' },
+      { status: 500 }
+    );
   }
 }

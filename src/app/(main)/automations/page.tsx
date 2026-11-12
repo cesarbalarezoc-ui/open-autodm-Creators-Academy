@@ -6,10 +6,19 @@ import { cn } from "@/lib/utils";
 import { AutomationsList } from "@/components/automations/AutomationsList";
 import { ContactsList } from "@/components/automations/ContactsList";
 import { NewAutomationModal } from "@/components/automations/new-flow/NewAutomationModal";
-import { useAutomations, useToggleAutomation, useDeleteAutomation } from "@/hooks/useAutomations";
+import {
+    useAutomations,
+    useToggleAutomation,
+    useDeleteAutomation
+} from "@/hooks/useAutomations";
 import { useActiveAccount } from "@/hooks/useActiveAccount";
 import type { AutomationFromDB } from "@/hooks/useAutomations";
 import { AutomationDebugPanel } from "@/components/debug/AutomationDebugPanel";
+
+const TAB_LABELS = {
+    automations: "Automatizaciones",
+    contacts: "Contactos",
+};
 
 export default function AutomationsPage() {
     const [activeTab, setActiveTab] = useState<"automations" | "contacts">("automations");
@@ -18,6 +27,7 @@ export default function AutomationsPage() {
 
     const { accountId } = useActiveAccount();
     const { data: automations, isLoading } = useAutomations(accountId);
+
     const toggleMutation = useToggleAutomation();
     const deleteMutation = useDeleteAutomation();
 
@@ -42,7 +52,7 @@ export default function AutomationsPage() {
     return (
         <div className="w-full max-w-5xl mx-auto space-y-6 pb-16">
 
-            {/* Tabs + new */}
+            {/* Pestañas y nueva automatización */}
             <div className="flex items-center justify-between gap-4">
                 <div className="inline-flex items-center bg-muted rounded-lg p-0.5">
                     {(["automations", "contacts"] as const).map((tab) => (
@@ -50,27 +60,30 @@ export default function AutomationsPage() {
                             key={tab}
                             onClick={() => setActiveTab(tab)}
                             className={cn(
-                                "h-8 px-3.5 rounded-[7px] text-[13px] font-medium capitalize transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+                                "h-8 px-3.5 rounded-[7px] text-[13px] font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
                                 activeTab === tab
                                     ? "bg-card text-foreground shadow-sm"
                                     : "text-muted-foreground hover:text-foreground"
                             )}
                         >
-                            {tab}
+                            {TAB_LABELS[tab]}
                         </button>
                     ))}
                 </div>
 
                 <button
-                    onClick={() => { setEditingAutomation(null); setIsModalOpen(true); }}
-                    className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-foreground text-background text-[13px] font-semibold hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                    onClick={() => {
+                        setEditingAutomation(null);
+                        setIsModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-primary text-primary-foreground text-[13px] font-semibold hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                 >
                     <Plus className="w-3.5 h-3.5" />
-                    New automation
+                    Nueva automatización
                 </button>
             </div>
 
-            {/* Content */}
+            {/* Contenido */}
             <div className="min-h-[420px]">
                 {activeTab === "automations" ? (
                     <AutomationsList
@@ -86,6 +99,7 @@ export default function AutomationsPage() {
                 )}
             </div>
 
+            {/* Ventana para crear o editar automatizaciones */}
             <NewAutomationModal
                 isOpen={isModalOpen}
                 onClose={handleModalClose}
@@ -93,7 +107,7 @@ export default function AutomationsPage() {
                 accountId={accountId}
             />
 
-            {/* Debug panel - visible only when NEXT_PUBLIC_DEBUG=true */}
+            {/* Panel de depuración */}
             <AutomationDebugPanel />
         </div>
     );

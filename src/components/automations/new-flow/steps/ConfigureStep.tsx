@@ -34,23 +34,23 @@ const TYPE_COPY: Record<string, {
 }> = {
     "comment-dm": {
         triggerTitle: "When someone comments",
-        keywordModeSpecific: "Specific keywords",
+        keywordModeSpecific: "Palabras clave específicas",
         keywordModeAny: "Any comment",
         keywordPlaceholder: "Type a keyword and press Enter…",
         anyModeHint: null,
     },
     "dm-reply": {
-        triggerTitle: "When someone DMs you",
-        keywordModeSpecific: "Specific keywords",
-        keywordModeAny: "Any message",
-        keywordPlaceholder: "e.g. DIET, GUIDE, LINK…",
-        anyModeHint: "Any message replies to EVERY DM you receive - including real conversations. Use specific keywords unless you're sure.",
+        triggerTitle: "Cuando alguien te envíe un mensaje directo",
+        keywordModeSpecific: "Palabras clave específicas",
+        keywordModeAny: "Cualquier mensaje",
+        keywordPlaceholder: "Ej.: DIETA, GUÍA, ENLACE…",
+        anyModeHint: "Cualquier mensaje replies to EVERY DM you receive - including real conversations. Use specific keywords unless you're sure.",
     },
     "story-reply": {
         triggerTitle: "When someone replies to your story",
-        keywordModeSpecific: "Specific keywords",
+        keywordModeSpecific: "Palabras clave específicas",
         keywordModeAny: "Any reply",
-        keywordPlaceholder: "e.g. DIET, GUIDE, LINK…",
+        keywordPlaceholder: "Ej.: DIETA, GUÍA, ENLACE…",
         anyModeHint: null,
     },
 };
@@ -164,7 +164,7 @@ function KeywordInput({ keywords, onChange, anyMode, onAnyModeChange, copy }: {
                             className="flex-1 min-w-[110px] bg-transparent text-[13px] outline-none placeholder:text-muted-foreground/50 px-1 py-0.5"
                         />
                     </div>
-                    <p className="text-[11px] text-muted-foreground mt-1">Separate with Enter or comma. Case-insensitive, whole-word match.</p>
+                    <p className="text-[11px] text-muted-foreground mt-1">Separa con Enter o coma. No distingue mayúsculas de minúsculas y busca palabras completas.</p>
                 </div>
             )}
         </div>
@@ -206,8 +206,8 @@ function CardEditor({ res, onUpdate }: { res: DMResponse; onUpdate: (p: Partial<
                 ) : (
                     <label className="flex flex-col items-center justify-center h-24 cursor-pointer hover:bg-muted/40 transition-colors gap-1.5">
                         <ImageIcon className="w-5 h-5 text-muted-foreground/40" />
-                        <span className="text-[12px] text-muted-foreground font-medium">Upload an image</span>
-                        <span className="text-[10px] text-muted-foreground/60">Max 2 MB · JPG, PNG, WebP</span>
+                        <span className="text-[12px] text-muted-foreground font-medium">Subir una imagen</span>
+                        <span className="text-[10px] text-muted-foreground/60">Máximo 2 MB · JPG, PNG, WebP</span>
                         <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
                             onChange={e => handleFile(e.target.files?.[0])} />
                     </label>
@@ -216,20 +216,20 @@ function CardEditor({ res, onUpdate }: { res: DMResponse; onUpdate: (p: Partial<
             {sizeError && <p className="text-[12px] text-destructive font-medium">{sizeError}</p>}
 
             <div>
-                <label className="micro-label block mb-1">Card title</label>
+                <label className="micro-label block mb-1">Título de la tarjeta</label>
                 <input value={res.cardTitle ?? ""} onChange={e => onUpdate({ cardTitle: e.target.value })} maxLength={80}
                     placeholder="e.g. The Complete Creator Toolkit" className={inputCls} />
             </div>
 
             <div>
-                <label className="micro-label block mb-1">Subtitle</label>
+                <label className="micro-label block mb-1">Subtítulo</label>
                 <input value={res.cardSubtitle ?? ""} onChange={e => onUpdate({ cardSubtitle: e.target.value })} maxLength={80}
                     placeholder="Short description" className={inputCls} />
             </div>
 
             <div>
                 <div className="flex items-center justify-between mb-1.5">
-                    <label className="micro-label">Buttons (max 3)</label>
+                    <label className="micro-label">Botones (máximo 3)</label>
                     {buttons.length < 3 && (
                         <button onClick={addBtn} className="text-[12px] text-primary font-semibold flex items-center gap-1 hover:opacity-80">
                             <Plus className="w-3 h-3" /> Add
@@ -239,7 +239,7 @@ function CardEditor({ res, onUpdate }: { res: DMResponse; onUpdate: (p: Partial<
                 <div className="space-y-1.5">
                     {buttons.map(btn => (
                         <div key={btn.id} className="flex gap-1.5">
-                            <input value={btn.title} onChange={e => updateBtn(btn.id, { title: e.target.value })} placeholder="Button label" className={inputCls} />
+                            <input value={btn.title} onChange={e => updateBtn(btn.id, { title: e.target.value })} placeholder="Texto del botón" className={inputCls} />
                             <input value={btn.link} onChange={e => updateBtn(btn.id, { link: e.target.value })} placeholder="https://" className={inputCls} />
                             <button onClick={() => removeBtn(btn.id)} className="p-2 text-muted-foreground hover:text-destructive shrink-0">
                                 <X className="w-3.5 h-3.5" />
@@ -273,7 +273,7 @@ function TextEditor({ res, onUpdate }: { res: DMResponse; onUpdate: (p: Partial<
             {showBtn ? (
                 <div className="rounded-lg border border-border overflow-hidden">
                     <div className="px-3 py-1.5 bg-muted/50 border-b border-border flex items-center justify-between">
-                        <span className="micro-label">Link button</span>
+                        <span className="micro-label">Botón con enlace</span>
                         <button onClick={() => { setShowBtn(false); onUpdate({ buttonTitle: "", buttonLink: "" }); }}
                             className="text-muted-foreground hover:text-destructive">
                             <X className="w-3 h-3" />
@@ -281,16 +281,16 @@ function TextEditor({ res, onUpdate }: { res: DMResponse; onUpdate: (p: Partial<
                     </div>
                     <div className="p-2.5 space-y-1.5">
                         <input value={res.buttonTitle ?? ""} onChange={e => onUpdate({ buttonTitle: e.target.value })}
-                            placeholder="Button label (e.g. Get the guide)" className={inputCls} />
+                            placeholder="Texto del botón (ej.: Obtener la guía)" className={inputCls} />
                         <input value={res.buttonLink ?? ""} onChange={e => onUpdate({ buttonLink: e.target.value })}
                             placeholder="https://your-link.com" className={inputCls} />
-                        <p className="text-[10px] text-muted-foreground">Delivered as a tappable button inside the DM.</p>
+                        <p className="text-[10px] text-muted-foreground">Se mostrará como un botón que se puede pulsar dentro del mensaje directo.</p>
                     </div>
                 </div>
             ) : (
                 <button onClick={() => setShowBtn(true)}
                     className="flex items-center gap-1 text-[12px] font-semibold text-primary hover:opacity-80 transition-opacity">
-                    <Plus className="w-3 h-3" /> Add link button
+                    <Plus className="w-3 h-3" /> Añadir botón con enlace
                 </button>
             )}
         </div>
@@ -305,7 +305,7 @@ function ResponseBlock({ res, idx, onUpdate, onDelete }: {
     onDelete: () => void;
 }) {
     const [open, setOpen] = useState(true);
-    const typeLabel = res.type === "card" ? "Card message" : "Text message";
+    const typeLabel = res.type === "card" ? "Mensaje con tarjeta" : "Mensaje de texto";
 
     return (
         <div className="border border-border rounded-lg overflow-hidden">
@@ -402,11 +402,11 @@ export function ConfigureStep({ data, onUpdate, creatorProfilePicUrl }: Configur
 
                 {/* Name */}
                 <section className="space-y-2">
-                    <SectionHeader title="Name" />
+                    <SectionHeader title="Nombre" />
                     <input
                         value={data.name}
                         onChange={e => onUpdate({ name: e.target.value })}
-                        placeholder="e.g. Diet guide funnel"
+                        placeholder="Ej.: Embudo de guía de dieta"
                         className={inputCls}
                     />
                 </section>
@@ -418,7 +418,7 @@ export function ConfigureStep({ data, onUpdate, creatorProfilePicUrl }: Configur
                             <div className="flex items-center gap-2.5 p-2.5 bg-muted/40 rounded-lg">
                                 <img src={data.postThumbnailUrl} alt="post" className="w-9 h-9 object-cover rounded-md shrink-0" />
                                 <div className="min-w-0">
-                                    <p className="micro-label">Selected post</p>
+                                    <p className="micro-label">Publicación seleccionada</p>
                                     <p className="text-[12px] text-foreground truncate">
                                         {data.postCaption ? data.postCaption.slice(0, 70) : "No caption"}
                                     </p>
@@ -487,10 +487,10 @@ export function ConfigureStep({ data, onUpdate, creatorProfilePicUrl }: Configur
                     </section>
                 )}
 
-                {/* Auto DM */}
+                {/* Mensaje directo automático */}
                 <section className="space-y-3">
                     <SectionHeader
-                        title="Auto DM"
+                        title="Mensaje directo automático"
                         action={<Toggle on={data.isAutoDmEnabled} onChange={() => onUpdate({ isAutoDmEnabled: !data.isAutoDmEnabled })} />}
                     />
 
@@ -503,12 +503,12 @@ export function ConfigureStep({ data, onUpdate, creatorProfilePicUrl }: Configur
                                 transition={{ duration: 0.18 }}
                                 className="overflow-hidden space-y-3"
                             >
-                                {/* Opening message */}
+                                {/* Mensaje de bienvenida */}
                                 <div className="border border-border rounded-lg overflow-hidden">
                                     <div className="flex items-center justify-between px-3 py-2.5 bg-muted/50 border-b border-border">
                                         <div>
-                                            <p className="text-[12.5px] font-semibold text-foreground">Opening message</p>
-                                            <p className="text-[11px] text-muted-foreground">The first DM, sent automatically on trigger</p>
+                                            <p className="text-[12.5px] font-semibold text-foreground">Mensaje de bienvenida</p>
+                                            <p className="text-[11px] text-muted-foreground">El primer mensaje directo, enviado automáticamente cuando se active.</p>
                                         </div>
                                         <Toggle
                                             on={data.dmOpeningMessageEnabled}
@@ -538,13 +538,13 @@ export function ConfigureStep({ data, onUpdate, creatorProfilePicUrl }: Configur
                                                     </div>
                                                     {isComment && (
                                                         <p className="text-[10px] text-muted-foreground">
-                                                            Tip: <code className="font-mono bg-muted px-1 rounded">{"{username}"}</code> becomes the commenter&apos;s @handle.
+                                                            Consejo: <code className="font-mono bg-muted px-1 rounded">{"{username}"}</code> se convertirá en el usuario de Instagram de quien comentó.
                                                         </p>
                                                     )}
 
                                                     <div className="rounded-lg border border-border p-2.5 space-y-1.5">
-                                                        <p className="micro-label">Reveal button</p>
-                                                        <p className="text-[11px] text-muted-foreground">They tap this to receive your responses - the tap confirms real interest.</p>
+                                                        <p className="micro-label">Botón para revelar</p>
+                                                        <p className="text-[11px] text-muted-foreground">La persona pulsa aquí para recibir tus respuestas. Este toque confirma su interés.</p>
                                                         <input
                                                             value={data.dmOpeningMessageButtonTitle}
                                                             onChange={e => onUpdate({ dmOpeningMessageButtonTitle: e.target.value })}
@@ -552,7 +552,7 @@ export function ConfigureStep({ data, onUpdate, creatorProfilePicUrl }: Configur
                                                             placeholder="Send me the link"
                                                             className={inputCls}
                                                         />
-                                                        <p className="text-[10px] text-muted-foreground">Max 20 characters (Instagram limit). Leave empty to send responses immediately.</p>
+                                                        <p className="text-[10px] text-muted-foreground">Máximo 20 caracteres (límite de Instagram). Déjalo vacío para enviar las respuestas inmediatamente.</p>
                                                     </div>
                                                 </div>
                                             </motion.div>
@@ -560,12 +560,12 @@ export function ConfigureStep({ data, onUpdate, creatorProfilePicUrl }: Configur
                                     </AnimatePresence>
                                 </div>
 
-                                {/* Require follow */}
+                                {/* Exigir que te sigan */}
                                 <div className="border border-border rounded-lg overflow-hidden">
                                     <div className="flex items-center justify-between px-3 py-2.5 bg-muted/50 border-b border-border">
                                         <div>
-                                            <p className="text-[12.5px] font-semibold text-foreground">Require follow</p>
-                                            <p className="text-[11px] text-muted-foreground">Deliver only after Instagram confirms they follow you</p>
+                                            <p className="text-[12.5px] font-semibold text-foreground">Exigir que te sigan</p>
+                                            <p className="text-[11px] text-muted-foreground">Enviar únicamente cuando Instagram confirme que te siguen.</p>
                                         </div>
                                         <Toggle on={data.askToFollowEnabled} onChange={() => onUpdate({ askToFollowEnabled: !data.askToFollowEnabled })} />
                                     </div>
@@ -581,7 +581,7 @@ export function ConfigureStep({ data, onUpdate, creatorProfilePicUrl }: Configur
                                             >
                                                 <div className="p-3 space-y-2.5">
                                                     <div>
-                                                        <label className="micro-label block mb-1">&ldquo;Not following&rdquo; message</label>
+                                                        <label className="micro-label block mb-1">Mensaje para quienes aún no te siguen</label>
                                                         <textarea
                                                             value={data.askToFollowMessage}
                                                             onChange={e => onUpdate({ askToFollowMessage: e.target.value })}
@@ -590,12 +590,12 @@ export function ConfigureStep({ data, onUpdate, creatorProfilePicUrl }: Configur
                                                             placeholder="Hey! It seems you're not following me yet…"
                                                             className={textareaCls}
                                                         />
-                                                        <p className="text-[10px] text-muted-foreground mt-0.5">Max 80 chars (card title limit).</p>
+                                                        <p className="text-[10px] text-muted-foreground mt-0.5">Máximo 80 caracteres (límite del título de la tarjeta).</p>
                                                     </div>
 
                                                     <div className="grid grid-cols-2 gap-2">
                                                         <div>
-                                                            <label className="micro-label block mb-1">Profile button</label>
+                                                            <label className="micro-label block mb-1">Botón para visitar el perfil</label>
                                                             <input
                                                                 value={data.askToFollowVisitProfileButton}
                                                                 onChange={e => onUpdate({ askToFollowVisitProfileButton: e.target.value })}
@@ -605,7 +605,7 @@ export function ConfigureStep({ data, onUpdate, creatorProfilePicUrl }: Configur
                                                             />
                                                         </div>
                                                         <div>
-                                                            <label className="micro-label block mb-1">Confirm button</label>
+                                                            <label className="micro-label block mb-1">Botón de confirmación</label>
                                                             <input
                                                                 value={data.askToFollowConfirmButton}
                                                                 onChange={e => onUpdate({ askToFollowConfirmButton: e.target.value })}
@@ -637,7 +637,7 @@ export function ConfigureStep({ data, onUpdate, creatorProfilePicUrl }: Configur
 
                                     {!data.dmOpeningMessageEnabled && data.dmResponses.length >= 1 && (
                                         <div className="text-[12px] text-amber-600 dark:text-amber-400 bg-amber-500/10 rounded-lg px-3 py-2 font-medium">
-                                            Opening message is off - only one response is sent.
+                                            El mensaje de bienvenida está desactivado: solo se enviará una respuesta.
                                         </div>
                                     )}
 
@@ -657,14 +657,14 @@ export function ConfigureStep({ data, onUpdate, creatorProfilePicUrl }: Configur
                                             disabled={!canAddMoreResponses}
                                             className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[12px] font-medium border border-border text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                                         >
-                                            <MessageSquare className="w-3.5 h-3.5" /> Text message
+                                            <MessageSquare className="w-3.5 h-3.5" /> Mensaje de texto
                                         </button>
                                         <button
                                             onClick={() => canAddMoreResponses && addResponse("card")}
                                             disabled={!canAddMoreResponses}
                                             className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[12px] font-medium border border-border text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                                         >
-                                            <LayoutGrid className="w-3.5 h-3.5" /> Card message
+                                            <LayoutGrid className="w-3.5 h-3.5" /> Mensaje con tarjeta
                                         </button>
                                     </div>
                                 </div>

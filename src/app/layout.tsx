@@ -14,9 +14,9 @@ const bricolage = Bricolage_Grotesque({
 });
 
 export const metadata: Metadata = {
-  title: "open-autoDM",
+  title: "PROSPECTOR AI",
   description:
-    "Open-source, self-hosted Instagram comment-to-DM automation. Your own Meta app, your own Supabase, your own deployment.",
+    "Plataforma inteligente de automatización de Instagram. Gestiona tus mensajes, comentarios, contactos y oportunidades desde un solo lugar.",
 };
 
 export default function RootLayout({
@@ -25,7 +25,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="es" suppressHydrationWarning>
       <body
         className={`${inter.variable} ${bricolage.variable} font-sans antialiased bg-background text-foreground transition-colors duration-300`}
       >

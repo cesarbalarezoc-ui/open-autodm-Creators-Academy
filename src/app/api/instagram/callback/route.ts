@@ -77,28 +77,56 @@ export async function GET(request: Request): Promise<Response> {
     // never hit a foreign-key violation.
     await db.from('profiles').upsert({ id: userId }, { onConflict: 'id', ignoreDuplicates: true });
 
-    const { error } = await db.from('instagram_accounts').upsert(
-      {
-        user_id: userId,
-        instagram_user_id: profile.user_id,
-        username: profile.username,
-        name: profile.name ?? null,
-        profile_picture_url: profile.profile_picture_url ?? null,
-        access_token_encrypted: encryptedToken,
-        token_expires_at: expiresAt.toISOString(),
-        is_active: true,
-        paused_until: null,
-        pause_reason: null,
-      },
-      { onConflict: 'instagram_user_id', ignoreDuplicates: false }
-    );
+    const accountData = {
+  user_id: userId,
+  instagram_user_id: profile.user_id,
+  username: profile.username,
+  name: profile.name ?? null,
+  profile_picture_url: profile.profile_picture_url ?? null,
+  access_token_encrypted: encryptedToken,
+  token_expires_at: expiresAt.toISOString(),
+  is_active: true,
+  paused_until: null,
+  pause_reason: null,
+};
 
-    if (error) {
-      if (error.code === '23505') {
-        return settingsRedirect('instagram_error=account_already_connected');
-      }
-      throw error;
-    }
+// Primero intentamos crear una conexión nueva.
+const { error: insertError } = await db
+  .from('instagram_accounts')
+  .insert(accountData);
+
+if (insertError) {
+  if (insertError.code !== '23505') {
+    throw insertError;
+  }
+
+  // La cuenta ya existe: comprobamos quién es su propietario.
+  const { data: existingAccount, error: lookupError } = await db
+    .from('instagram_accounts')
+    .select('id, user_id')
+    .eq('instagram_user_id', profile.user_id)
+    .maybeSingle();
+
+  if (lookupError) {
+    throw lookupError;
+  }
+
+  // Si pertenece a otro alumno, rechazamos la conexión.
+  if (!existingAccount || existingAccount.user_id !== userId) {
+    return settingsRedirect('instagram_error=account_already_connected');
+  }
+
+  // Si pertenece al mismo alumno, actualizamos sus datos.
+  const { error: updateError } = await db
+    .from('instagram_accounts')
+    .update(accountData)
+    .eq('id', existingAccount.id)
+    .eq('user_id', userId);
+
+  if (updateError) {
+    throw updateError;
+  }
+}
 
     // Per-account webhook subscription - without this NO events are delivered.
     await subscribeToWebhookFields(profile.user_id, longLived.access_token);
