@@ -14,12 +14,27 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const SaveSetupSchema = z.object({
-  metaAppId: z.string().regex(/^\d{5,25}$/, 'Meta App ID must be numeric'),
-  metaAppSecret: z.string().regex(/^[0-9a-f]{32}$/i, 'Meta App Secret must be 32 hex characters'),
+  metaAppId: z
+    .string()
+    .regex(/^\d{5,25}$/, 'Meta App ID must be numeric'),
+
+  metaAppSecret: z
+  .string()
+  .regex(/^[0-9a-f]{32}$/i, 'Meta App Secret must be 32 hex characters')
+  .optional()
+  .or(z.literal('').transform(() => undefined)),
   metaFbAppSecret: z
     .string()
     .regex(/^[0-9a-f]{32}$/i, 'Facebook App Secret must be 32 hex characters')
     .optional()
+    .or(z.literal('').transform(() => undefined)),
+
+  metaLoginConfigId: z
+    .string()
+    .trim()
+    .max(100, 'Login Configuration ID is too long')
+    .optional()
+    .nullable()
     .or(z.literal('').transform(() => undefined)),
 });
 
@@ -64,20 +79,28 @@ export async function GET(request: Request): Promise<Response> {
     const appUrl = getAppUrl(request);
 
     const db = createServiceClient();
+
     const { data: row, error } = await db
       .from('app_settings')
-      .select('meta_app_id, webhook_verify_token, setup_completed')
+      .select(
+        'meta_app_id, meta_login_config_id, webhook_verify_token, setup_completed'
+      )
       .eq('id', 1)
       .maybeSingle();
 
     if (error) {
       console.error('[api:setup] Failed to read app settings');
-      return Response.json({ error: 'Failed to read setup settings' }, { status: 500 });
+
+      return Response.json(
+        { error: 'Failed to read setup settings' },
+        { status: 500 }
+      );
     }
 
     return Response.json({
       configured: !!settings,
       metaAppId: row?.meta_app_id ?? null,
+      metaLoginConfigId: row?.meta_login_config_id ?? null,
       webhookVerifyToken: row?.webhook_verify_token ?? null,
       webhookUrl: `${appUrl}/api/webhook`,
       oauthRedirectUri: `${appUrl}/api/instagram/callback`,
@@ -86,7 +109,11 @@ export async function GET(request: Request): Promise<Response> {
     });
   } catch {
     console.error('[api:setup] Failed to load setup configuration');
-    return Response.json({ error: 'Failed to load setup configuration' }, { status: 500 });
+
+    return Response.json(
+      { error: 'Failed to load setup configuration' },
+      { status: 500 }
+    );
   }
 }
 
@@ -102,7 +129,10 @@ export async function POST(request: Request): Promise<Response> {
   try {
     body = await request.json();
   } catch {
-    return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return Response.json(
+      { error: 'Invalid JSON body' },
+      { status: 400 }
+    );
   }
 
   const parsed = SaveSetupSchema.safeParse(body);
@@ -122,6 +152,7 @@ export async function POST(request: Request): Promise<Response> {
     getEnv();
 
     const db = createServiceClient();
+
     const { data: existing, error: readError } = await db
       .from('app_settings')
       .select('webhook_verify_token')
@@ -130,7 +161,11 @@ export async function POST(request: Request): Promise<Response> {
 
     if (readError) {
       console.error('[api:setup] Failed to read existing verification token');
-      return Response.json({ error: 'Failed to read setup settings' }, { status: 500 });
+
+      return Response.json(
+        { error: 'Failed to read setup settings' },
+        { status: 500 }
+      );
     }
 
     const verifyToken =
@@ -140,6 +175,7 @@ export async function POST(request: Request): Promise<Response> {
       metaAppId: parsed.data.metaAppId,
       metaAppSecret: parsed.data.metaAppSecret,
       metaFbAppSecret: parsed.data.metaFbAppSecret ?? null,
+      metaLoginConfigId: parsed.data.metaLoginConfigId,
       webhookVerifyToken: verifyToken,
     });
 

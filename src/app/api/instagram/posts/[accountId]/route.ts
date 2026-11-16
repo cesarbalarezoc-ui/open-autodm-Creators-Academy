@@ -17,7 +17,6 @@ export const dynamic = 'force-dynamic';
 
 const logger = createLogger('api:posts');
 
-const META_GRAPH_BASE = `https://graph.instagram.com/${META_API_VERSION}`;
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
@@ -148,7 +147,7 @@ export async function GET(
 
     const { data: igAccount, error: igError } = await db
         .from('instagram_accounts')
-        .select('id, instagram_user_id, access_token_encrypted')
+        .select('id, instagram_user_id, access_token_encrypted, auth_method')
         .eq('id', accountId)
         .eq('user_id', user.id)
         .eq('is_active', true)
@@ -163,9 +162,14 @@ export async function GET(
 
     // 4. CONSULTAR CACHÉ
 
+    const authMethod = igAccount.auth_method ?? 'instagram_login';
+    const metaGraphBase = authMethod === 'unified_login'
+        ? `https://graph.facebook.com/${META_API_VERSION}`
+        : `https://graph.instagram.com/${META_API_VERSION}`;
+
     cleanCache();
 
-    const cacheKey = `${accountId}:${limit}:${after ?? 'first'}`;
+    const cacheKey = `${accountId}:${authMethod}:${limit}:${after ?? 'first'}`;
 
     const hit = cache.get(cacheKey);
 
@@ -214,7 +218,7 @@ export async function GET(
     ].join(',');
 
     const mediaUrl = new URL(
-        `${META_GRAPH_BASE}/${igAccount.instagram_user_id}/media`
+        `${metaGraphBase}/${igAccount.instagram_user_id}/media`
     );
 
     mediaUrl.searchParams.set('fields', fields);
@@ -327,6 +331,7 @@ export async function GET(
     });
 
     cleanCache();
+
 
     // 11. RESPONDER
 

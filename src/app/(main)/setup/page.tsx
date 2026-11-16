@@ -9,7 +9,7 @@
  *  5. Understy who can trigger it (testers, going public)
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
     Wrench, KeyRound, Webhook, Clock3, CheckCircle2, Copy, Check,
@@ -96,15 +96,22 @@ export default function SetupPage() {
 
     const [appId, setAppId] = useState("");
     const [appSecret, setAppSecret] = useState("");
+    const [metaLoginConfigId, setMetaLoginConfigId] = useState("");
     const [fbAppSecret, setFbAppSecret] = useState("");
     const [saveError, setSaveError] = useState<string | null>(null);
     const [justSaved, setJustSaved] = useState(false);
+
+useEffect(() => {
+    setAppId(setup?.metaAppId ?? "");
+    setMetaLoginConfigId(setup?.metaLoginConfigId ?? "");
+}, [setup?.metaAppId, setup?.metaLoginConfigId]);
 
     const hyleSave = () => {
         setSaveError(null);
         saveMutation.mutate(
             {
                 metaAppId: appId.trim(),
+                metaLoginConfigId: metaLoginConfigId.trim() || null,
                 metaAppSecret: appSecret.trim(),
                 ...(fbAppSecret.trim() ? { metaFbAppSecret: fbAppSecret.trim() } : {}),
             },
@@ -182,6 +189,20 @@ export default function SetupPage() {
                             className={inputCls}
                         />
                     </div>
+<div>
+    <label className="micro-label block mb-1">
+        Meta Login Configuration ID
+    </label>
+    <input
+        value={metaLoginConfigId}
+        onChange={(e) => setMetaLoginConfigId(e.target.value)}
+        placeholder="Introduce tu Configuration ID"
+        className={inputCls}
+    />
+    <p className="text-[11px] text-muted-foreground mt-1">
+        Identificador de configuración de Instagram Business Login proporcionado por Meta.
+    </p>
+</div>
                     <div>
                         <label className="micro-label block mb-1">Secreto de la aplicación de Instagram</label>
                         <input
@@ -213,8 +234,12 @@ export default function SetupPage() {
                     {justSaved && <p className="text-[12px] text-secondary font-medium">Guardado. Continúa con el paso 3.</p>}
                     <button
                         onClick={hyleSave}
-                        disabled={saveMutation.isPending || !appId.trim() || !appSecret.trim()}
-                        className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-foreground text-background text-[13px] font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                                          disabled={
+    saveMutation.isPending ||
+    !appId.trim() ||
+    (!appSecret.trim() && !configured)
+}
+      className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-foreground text-background text-[13px] font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                     >
                         {saveMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <KeyRound className="w-3.5 h-3.5" />}
                         {saveMutation.isPending ? "Guardyo…" : "Guardar credenciales"}

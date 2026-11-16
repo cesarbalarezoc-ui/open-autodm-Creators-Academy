@@ -20,7 +20,7 @@ export async function GET(request: Request): Promise<Response> {
   const db = createServiceClient();
   const { data, error } = await db
     .from('instagram_accounts')
-    .select('id, instagram_user_id, username, name, profile_picture_url, is_active, token_expires_at, paused_until, pause_reason, created_at')
+    .select('id, instagram_user_id, username, name, profile_picture_url, is_active, token_expires_at, paused_until, pause_reason, auth_method, token_type, facebook_page_id, created_at')
     .eq('user_id', user.id)
     .eq('is_active', true)
     .order('created_at', { ascending: false });

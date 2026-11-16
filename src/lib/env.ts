@@ -1,8 +1,11 @@
+
+
 /**
  * Server-side environment validation.
  */
 
 import { z } from 'zod';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 
 const serverEnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(20, 'SUPABASE_SERVICE_ROLE_KEY is required'),
@@ -80,10 +83,24 @@ export function isAdminUser(userId: string): boolean {
 
 /**
  * Resolve the deployment's public base URL.
- * Prefers NEXT_PUBLIC_APP_URL; falls back to the incoming request origin.
+ * Prefers Cloudflare Worker environment, then process.env,
+ * then the incoming request origin.
  */
 export function getAppUrl(request?: Request): string {
-  const fromEnv = process.env['NEXT_PUBLIC_APP_URL'];
+  let fromEnv: string | undefined;
+
+  try {
+    const cloudflareContext = getCloudflareContext();
+
+    fromEnv = (cloudflareContext.env as Record<string, unknown>)[
+      'NEXT_PUBLIC_APP_URL'
+    ] as string | undefined;
+  } catch {
+    // Cloudflare context may not be available in local or non-Cloudflare environments.
+  }
+
+  fromEnv = fromEnv || process.env['NEXT_PUBLIC_APP_URL'];
+
   if (fromEnv) return fromEnv.replace(/\/$/, '');
 
   if (request) {

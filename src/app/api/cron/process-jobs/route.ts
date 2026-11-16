@@ -43,6 +43,7 @@ async function refreshExpiringTokens(): Promise<number> {
     .from('instagram_accounts')
     .select('*')
     .eq('is_active', true)
+    .eq('auth_method', 'instagram_login')
     .not('token_expires_at', 'is', null)
     .lt('token_expires_at', threshold);
 

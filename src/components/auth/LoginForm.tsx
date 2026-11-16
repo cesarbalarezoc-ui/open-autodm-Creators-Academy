@@ -4,12 +4,12 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Loader2, LogIn } from "lucide-react";
 import { createBrowserClient } from "@/lib/supabase";
-import { LogoMark } from "@/components/ui/Logo";
+
 
 /**
  * Sign-in only - there is deliberately NO registration flow.
- * Accounts are created by the instance owner in the Supabase dashboard
- * (Authentication → Users → Add user), with public signups disabled.
+ * Accounts are created by the instance owner in the Supabase
+ * (Autenticación → Usuarios → Añadir usuario), with public signups disabled.
  */
 export function LoginForm() {
     const [email, setEmail] = useState("");
@@ -31,7 +31,7 @@ export function LoginForm() {
             }
             window.location.href = "/dashboard";
         } catch {
-            setError("Something went wrong. Try again.");
+            setError("Ocurrió un problema. Inténtalo nuevamente.");
         } finally {
             setIsLoading(false);
         }
@@ -49,12 +49,12 @@ export function LoginForm() {
 
             <div className="p-8">
                 <div className="flex flex-col mb-7">
-                    <LogoMark className="w-9 h-9 mb-5" />
+                    <div className="w-11 h-11 mb-5 rounded-xl bg-gradient-to-br from-blue-500 via-cyan-400 to-violet-600 shadow-lg shadow-cyan-500/20 ring-1 ring-white/20" aria-hidden="true" />
                     <h1 className="text-lg font-heading font-semibold tracking-tight text-foreground mb-1">
-                        Welcome back
+                        Bienvenido de nuevo
                     </h1>
                     <p className="text-[13px] text-muted-foreground">
-                        Sign in to your automation console.
+                        Ingresa tus credenciales para continuar.
                     </p>
                 </div>
 
@@ -62,26 +62,26 @@ export function LoginForm() {
                     {error && <p className="text-[12.5px] text-destructive font-medium">{error}</p>}
 
                     <div>
-                        <label className="micro-label block mb-1">Email</label>
+                        <label className="micro-label block mb-1">Correo electrónico</label>
                         <input
                             type="email"
                             required
                             autoComplete="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            placeholder="you@example.com"
+                            placeholder=""
                             className="w-full h-10 px-3 text-[13.5px] bg-background border border-border rounded-lg outline-none focus:border-foreground/30 focus-visible:ring-2 focus-visible:ring-ring/30 transition-colors"
                         />
                     </div>
                     <div>
-                        <label className="micro-label block mb-1">Password</label>
+                        <label className="micro-label block mb-1">Contraseña</label>
                         <input
                             type="password"
                             required
                             autoComplete="current-password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            placeholder="••••••••••••"
+                            placeholder=""
                             className="w-full h-10 px-3 text-[13.5px] bg-background border border-border rounded-lg outline-none focus:border-foreground/30 focus-visible:ring-2 focus-visible:ring-ring/30 transition-colors"
                         />
                     </div>
@@ -92,14 +92,14 @@ export function LoginForm() {
                         className="flex items-center justify-center gap-2 w-full h-10 mt-1 text-[13.5px] font-semibold bg-foreground text-background rounded-lg hover:opacity-90 disabled:opacity-60 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                     >
                         {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
-                        {isLoading ? "Signing in…" : "Sign in"}
+                        {isLoading ? "Iniciando sesión…" : "Iniciar sesión"}
                     </button>
                 </form>
 
                 <div className="mt-6 pt-5 border-t border-border">
                     <p className="text-[11.5px] text-muted-foreground leading-relaxed">
-                        No account? Access is invite-only - the instance owner creates users in the
-                        Supabase dashboard <span className="text-foreground/70 font-medium">(Authentication → Users → Add user)</span>.
+                        Acceso exclusivo por invitación. El administrador crea las cuentas desde
+                        Supabase <span className="text-foreground/70 font-medium">(Autenticación → Usuarios → Añadir usuario)</span>.
                     </p>
                 </div>
             </div>

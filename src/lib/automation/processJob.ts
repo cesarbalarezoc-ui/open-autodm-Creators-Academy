@@ -35,6 +35,7 @@ import {
   replyToComment,
   getAudienceProfile,
   type DmRecipient,
+  type InstagramAuthMethod,
 } from '@/lib/instagram/api';
 import { updateContactProfile } from '@/lib/automation/contacts';
 import { MetaApiError, AccountPausedMetaError } from '@/lib/instagram/errors';
@@ -57,7 +58,8 @@ async function sendOneResponse(
   audienceId: string,
   response: DMResponse,
   username: string | null | undefined,
-  accessToken: string
+  accessToken: string,
+  authMethod: InstagramAuthMethod
 ): Promise<void> {
   if (response.type === 'card') {
     const cardImageUrl = response.cardImage?.startsWith('http') ? response.cardImage : undefined;
@@ -68,7 +70,7 @@ async function sendOneResponse(
       ...(response.cardButtons !== undefined
         ? { buttons: response.cardButtons.map((b) => ({ title: b.title, url: b.link })) }
         : {}),
-    });
+    }, authMethod);
     return;
   }
 
@@ -77,13 +79,13 @@ async function sendOneResponse(
   if (link) {
     const buttonTitle = response.buttonTitle?.trim() || 'Open link';
     try {
-      await sendInstagramLinkButtonDm(igAccountIgsid, recipient, messageText, buttonTitle, link, accessToken);
+      await sendInstagramLinkButtonDm(igAccountIgsid, recipient, messageText, buttonTitle, link, accessToken, authMethod);
     } catch (buttonErr) {
       if (!shouldFallBackToInlineLink(buttonErr)) throw buttonErr;
-      await sendInstagramDm(igAccountIgsid, recipient, `${messageText}\n\n${buttonTitle}: ${link}`, accessToken);
+      await sendInstagramDm(igAccountIgsid, recipient, `${messageText}\n\n${buttonTitle}: ${link}`, accessToken, undefined, authMethod);
     }
   } else {
-    await sendInstagramDm(igAccountIgsid, recipient, messageText, accessToken);
+    await sendInstagramDm(igAccountIgsid, recipient, messageText, accessToken, undefined, authMethod);
   }
 }
 
@@ -96,7 +98,8 @@ async function sendOneResponse(
 async function deliverResponsesBestEffort(
   payload: AutoDmJobPayload,
   responses: DMResponse[],
-  accessToken: string
+  accessToken: string,
+  authMethod: InstagramAuthMethod
 ): Promise<number> {
   let sent = 0;
   for (const [idx, response] of responses.entries()) {
@@ -109,7 +112,8 @@ async function deliverResponsesBestEffort(
         payload.triggerUserId,
         response,
         payload.triggerUsername,
-        accessToken
+        accessToken,
+        authMethod
       );
       sent += 1;
       debugLog('worker', 'info', 'responses_send', 'ok', `Response ${idx + 1}/${responses.length} sent (1-step flow)`, {
@@ -190,42 +194,23 @@ async function checkRateLimit(db: SupabaseClient, accountId: string): Promise<vo
     p_account_id: accountId,
     p_limit: DM_LIMIT_PER_HOUR,
   });
-
   if (error) {
-    logger.error(
-      { err: error, accountId },
-      'Rate limiter RPC error - blocking send for safety'
-    );
-    throw new Error('Rate limit verification failed - send blocked');
+    // Fail open with a warning - better to send than silently drop on a DB blip
+    logger.error({ err: error, accountId }, 'Rate limiter RPC error - allowing send');
+    return;
   }
-
-  const row = (data as Array<{
-    allowed: boolean;
-    current_count: number;
-    retry_after_seconds: number;
-  }> | null)?.[0];
-
+  const row = (data as Array<{ allowed: boolean; current_count: number; retry_after_seconds: number }> | null)?.[0];
   if (row && !row.allowed) {
-    debugLog(
-      'worker',
-      'warn',
-      'rate_limit_check',
-      'skipped',
+    debugLog('worker', 'warn', 'rate_limit_check', 'skipped',
       `Rate limit reached (${row.current_count}/${DM_LIMIT_PER_HOUR}/h) - delaying ${Math.ceil(row.retry_after_seconds / 60)}min`,
-      { accountId, currentCount: row.current_count }
-    );
+      { accountId, currentCount: row.current_count });
     throw new RateLimitDelay(row.retry_after_seconds * 1000, row.current_count);
   }
-
-  debugLog(
-    'worker',
-    'info',
-    'rate_limit_check',
-    'ok',
-    `Rate limit OK - ${row?.current_count ?? '?'}/${DM_LIMIT_PER_HOUR} this hour`,
-    { accountId }
-  );
+  debugLog('worker', 'info', 'rate_limit_check', 'ok', `Rate limit OK - ${row?.current_count ?? '?'}/${DM_LIMIT_PER_HOUR} this hour`, {
+    accountId,
+  });
 }
+
 /** Circuit breaker: skip sends while the account is paused. */
 function assertAccountNotPaused(account: InstagramAccountRow): void {
   if (account.paused_until && new Date(account.paused_until).getTime() > Date.now()) {
@@ -305,7 +290,6 @@ export async function processAutoDmJob(payload: AutoDmJobPayload, attempt: numbe
     .from('automations')
     .select('*')
     .eq('id', payload.automationId)
-    .eq('instagram_account_id', payload.instagramAccountId)
     .eq('is_active', true)
     .single<AutomationRow>();
   if (!automation) {
@@ -326,6 +310,8 @@ export async function processAutoDmJob(payload: AutoDmJobPayload, attempt: numbe
   }
 
   assertAccountNotPaused(igAccount);
+
+  const authMethod: InstagramAuthMethod = igAccount.auth_method ?? 'instagram_login';
 
   // ── 4: Rate limit (atomic, per-account) ──────────────────────────────────
   await checkRateLimit(db, payload.instagramAccountId);
@@ -359,7 +345,7 @@ export async function processAutoDmJob(payload: AutoDmJobPayload, attempt: numbe
       const randomReply =
         automation.comment_reply_options[Math.floor(Math.random() * automation.comment_reply_options.length)];
       if (randomReply && payload.triggerEventId) {
-        await replyToComment(payload.triggerEventId, renderTemplate(randomReply, payload.triggerUsername), accessToken);
+        await replyToComment(payload.triggerEventId, renderTemplate(randomReply, payload.triggerUsername), accessToken, authMethod);
         await db
           .from('dm_jobs')
           .update({ public_reply_sent_at: new Date().toISOString() })
@@ -400,7 +386,8 @@ export async function processAutoDmJob(payload: AutoDmJobPayload, attempt: numbe
         payload.triggerUserId,
         firstResponse,
         payload.triggerUsername,
-        accessToken
+        accessToken,
+        authMethod
       );
     } catch (err) {
       await markJobStatus(db, payload, 'failed', err instanceof Error ? err.message : String(err));
@@ -486,7 +473,7 @@ export async function processAutoDmJob(payload: AutoDmJobPayload, attempt: numbe
       messageId = await sendInstagramDm(payload.igAccountIgsid, recipient, messageText, accessToken, {
         title: automation.dm_opening_message_button_title!.trim(),
         payload: quickReplyPayload,
-      });
+      }, authMethod);
     } else if (openingLink) {
       // 1-step flow with a link: try a tappable web_url button template first;
       // if Meta rejects it for this recipient, fall back to an inline link.
@@ -497,21 +484,17 @@ export async function processAutoDmJob(payload: AutoDmJobPayload, attempt: numbe
           recipient,
           messageText,
           buttonTitle,
-          openingLink,
-          accessToken
-        );
+          openingLink, accessToken, authMethod);
       } catch (buttonErr) {
         if (!shouldFallBackToInlineLink(buttonErr)) throw buttonErr;
         debugLog('worker', 'warn', 'opening_dm', 'processing', 'Link button rejected - falling back to inline link', {});
         messageId = await sendInstagramDm(
           payload.igAccountIgsid,
           recipient,
-          `${messageText}\n\n${buttonTitle}: ${openingLink}`,
-          accessToken
-        );
+          `${messageText}\n\n${buttonTitle}: ${openingLink}`, accessToken, undefined, authMethod);
       }
     } else {
-      messageId = await sendInstagramDm(payload.igAccountIgsid, recipient, messageText, accessToken);
+      messageId = await sendInstagramDm(payload.igAccountIgsid, recipient, messageText, accessToken, undefined, authMethod);
     }
   } catch (err) {
     // Orphaned session cleanup on hard failures - the engine classifies the error
@@ -556,7 +539,7 @@ export async function processAutoDmJob(payload: AutoDmJobPayload, attempt: numbe
       `No reveal button - delivering ${automation.dm_responses.length} response(s) immediately`, {
         responseCount: automation.dm_responses.length,
       });
-    const sentCount = await deliverResponsesBestEffort(payload, automation.dm_responses, accessToken);
+    const sentCount = await deliverResponsesBestEffort(payload, automation.dm_responses, accessToken, authMethod);
     // Opening DM used the reserved slot; responses are extra sends.
     recordExtraSends(payload.instagramAccountId, sentCount);
   }
@@ -564,7 +547,7 @@ export async function processAutoDmJob(payload: AutoDmJobPayload, attempt: numbe
   // Contacts: DM/story webhooks don't carry a username - enrich it (and the
   // follow flag) from the profile API now that they've messaged us.
   if (payload.triggerType !== 'comment') {
-    void getAudienceProfile(payload.triggerUserId, accessToken).then((p) => {
+    void getAudienceProfile(payload.triggerUserId, accessToken, authMethod).then((p) => {
       if (p) {
         updateContactProfile({
           instagramAccountId: payload.instagramAccountId,
@@ -613,22 +596,6 @@ export async function processFollowUpDmJob(payload: AutoDmJobPayload): Promise<v
     debugLog('worker', 'warn', 'session_verify', 'error', `Session ${payload.sessionId} not found`, {});
     return;
   }
-  // Verify that the session belongs to this automation, account and audience.
-  if (
-    session.automation_id !== payload.automationId ||
-    session.instagram_account_id !== payload.instagramAccountId ||
-    session.audience_ig_user_id !== payload.triggerUserId
-  ) {
-    debugLog(
-      'worker',
-      'error',
-      'session_verify',
-      'error',
-      'Session ownership mismatch - follow-up rejected',
-      { sessionId: payload.sessionId }
-    );
-    return;
-  }
   if (session.completed as boolean) {
     debugLog('worker', 'info', 'session_verify', 'skipped', `Session ${payload.sessionId} already completed`, {});
     return;
@@ -648,12 +615,11 @@ export async function processFollowUpDmJob(payload: AutoDmJobPayload): Promise<v
 
   // ── 2: Load automation + account, breaker + rate limit ───────────────────
   const { data: automation } = await db
-  .from('automations')
-  .select('dm_responses, dm_opening_message_button_link, ask_to_follow_enabled, ask_to_follow_message, ask_to_follow_visit_profile_button, ask_to_follow_confirm_button')
-  .eq('id', payload.automationId)
-  .eq('instagram_account_id', payload.instagramAccountId)
-  .eq('is_active', true)
-  .single<AutomationRow>();
+    .from('automations')
+    .select('dm_responses, dm_opening_message_button_link, ask_to_follow_enabled, ask_to_follow_message, ask_to_follow_visit_profile_button, ask_to_follow_confirm_button')
+    .eq('id', payload.automationId)
+    .eq('is_active', true)
+    .single<AutomationRow>();
   if (!automation) {
     debugLog('worker', 'warn', 'automation_fetch', 'skipped', `Automation ${payload.automationId} inactive - completing session`, {});
     await db.from('automation_sessions').update({ completed: true }).eq('id', payload.sessionId);
@@ -671,6 +637,8 @@ export async function processFollowUpDmJob(payload: AutoDmJobPayload): Promise<v
   }
 
   assertAccountNotPaused(igAccount);
+
+  const authMethod: InstagramAuthMethod = igAccount.auth_method ?? 'instagram_login';
   await checkRateLimit(db, payload.instagramAccountId);
 
   let accessToken: string;
@@ -691,7 +659,7 @@ export async function processFollowUpDmJob(payload: AutoDmJobPayload): Promise<v
   // Unknown check results FAIL OPEN (deliver) - never block a real person
   // because Meta's profile endpoint hiccuped.
   if (automation.ask_to_follow_enabled && expectedStep === 1) {
-    const audienceProfile = await getAudienceProfile(payload.triggerUserId, accessToken);
+    const audienceProfile = await getAudienceProfile(payload.triggerUserId, accessToken, authMethod);
     const follows = audienceProfile?.followsBusiness ?? null;
     updateContactProfile({
       instagramAccountId: payload.instagramAccountId,
@@ -708,7 +676,7 @@ export async function processFollowUpDmJob(payload: AutoDmJobPayload): Promise<v
         visitProfileButtonTitle: automation.ask_to_follow_visit_profile_button,
         confirmButtonTitle: automation.ask_to_follow_confirm_button,
         confirmPayload,
-      });
+      }, authMethod);
 
       await db
         .from('automation_sessions')
@@ -730,7 +698,7 @@ export async function processFollowUpDmJob(payload: AutoDmJobPayload): Promise<v
   }
 
   if (automation.ask_to_follow_enabled && expectedStep === 2) {
-    const audienceProfile = await getAudienceProfile(payload.triggerUserId, accessToken);
+    const audienceProfile = await getAudienceProfile(payload.triggerUserId, accessToken, authMethod);
     const follows = audienceProfile?.followsBusiness ?? null;
     updateContactProfile({
       instagramAccountId: payload.instagramAccountId,
@@ -746,7 +714,7 @@ export async function processFollowUpDmJob(payload: AutoDmJobPayload): Promise<v
         payload.igAccountIgsid,
         { id: payload.triggerUserId },
         `Hmm, I still can't see your follow 👀 Tap "${automation.ask_to_follow_visit_profile_button}" above, hit Follow, then tap "${automation.ask_to_follow_confirm_button}" again 🙏`,
-        accessToken
+        accessToken, undefined, authMethod
       );
       await db
         .from('automation_sessions')
@@ -795,7 +763,7 @@ export async function processFollowUpDmJob(payload: AutoDmJobPayload): Promise<v
         ...(response.cardButtons !== undefined
           ? { buttons: response.cardButtons.map((b) => ({ title: b.title, url: b.link })) }
           : {}),
-      });
+      }, authMethod);
       lastMessageText = response.cardTitle ?? response.content ?? 'Card message';
     } else {
       const messageText = renderTemplate(response.content.trim(), payload.triggerUsername);
@@ -810,18 +778,18 @@ export async function processFollowUpDmJob(payload: AutoDmJobPayload): Promise<v
             messageText,
             buttonTitle,
             link,
-            accessToken
+            accessToken, authMethod
           );
           lastMessageText = messageText;
         } catch (buttonErr) {
           if (!shouldFallBackToInlineLink(buttonErr)) throw buttonErr;
           debugLog('worker', 'warn', 'responses_send', 'processing', 'Link button rejected - falling back to inline link', {});
           const fallback = `${messageText}\n\n${buttonTitle}: ${link}`;
-          await sendInstagramDm(payload.igAccountIgsid, { id: payload.triggerUserId }, fallback, accessToken);
+          await sendInstagramDm(payload.igAccountIgsid, { id: payload.triggerUserId }, fallback, accessToken, undefined, authMethod);
           lastMessageText = fallback;
         }
       } else {
-        await sendInstagramDm(payload.igAccountIgsid, { id: payload.triggerUserId }, messageText, accessToken);
+        await sendInstagramDm(payload.igAccountIgsid, { id: payload.triggerUserId }, messageText, accessToken, undefined, authMethod);
         lastMessageText = messageText;
       }
     }

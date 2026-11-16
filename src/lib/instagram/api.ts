@@ -19,7 +19,12 @@ import { classifyMetaError } from '@/lib/instagram/errors';
 const logger = createLogger('instagram');
 
 export const META_API_VERSION = 'v23.0';
-const META_GRAPH_BASE = `https://graph.instagram.com/${META_API_VERSION}`;
+export type InstagramAuthMethod = 'instagram_login' | 'unified_login';
+
+function getMetaGraphBase(authMethod: InstagramAuthMethod = 'instagram_login'): string {
+  const host = authMethod === 'unified_login' ? 'graph.facebook.com' : 'graph.instagram.com';
+  return `https://${host}/${META_API_VERSION}`;
+}
 
 interface MetaSendMessageResponse {
   recipient_id: string;
@@ -47,7 +52,7 @@ export interface QuickReply {
  * Who receives the message.
  *
  *  - { id }        → general messaging (requires the 24h engagement window)
- *  - { commentId } → a PRIVATE REPLY to a comment. This is Meta's purpose-built
+ *  - { commentId} → a PRIVATE REPLY to a comment. This is Meta's purpose-built
  *    comment-to-DM channel: its own allowance (750 private replies/hour,
  *    separate from the ~200/h messaging cap) and it is valid for 7 days after
  *    the comment. Always prefer this for comment-triggered opening DMs.
@@ -75,7 +80,8 @@ export async function sendInstagramDm(
   recipient: DmRecipient,
   messageText: string,
   accessToken: string,
-  quickReply?: QuickReply
+  quickReply?: QuickReply,
+  authMethod: InstagramAuthMethod = 'instagram_login'
 ): Promise<string> {
   let messageBody: Record<string, unknown>;
   if (quickReply?.title.trim()) {
@@ -84,7 +90,7 @@ export async function sendInstagramDm(
         type: 'template',
         payload: {
           template_type: 'button',
-          text: messageText.slice(0, 640), // button template text limit
+          text: messageText.slice(0, 640),
           buttons: [
             {
               type: 'postback',
@@ -107,7 +113,7 @@ export async function sendInstagramDm(
     messagePreview: messageText.slice(0, 80),
   });
 
-  const res = await fetch(`${META_GRAPH_BASE}/${igAccountIgsid}/messages?access_token=${accessToken}`, {
+  const res = await fetch(`${getMetaGraphBase(authMethod)}/${igAccountIgsid}/messages?access_token=${accessToken}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ recipient: recipientJson(recipient), message: messageBody }),
@@ -133,14 +139,8 @@ export async function sendInstagramDm(
   });
   return data.message_id;
 }
-
 /**
- * Sends a DM as a button template with a single tappable web_url LINK button -
- * far cleaner than pasting a raw URL into the text.
- *
- * IMPORTANT (learned from production tools): Meta occasionally rejects button
- * templates for certain recipients/URL combinations. Callers should catch
- * MetaApiError and fall back to sendInstagramDm with the link inline.
+ * Sends a DM as a button template with a single tappable web_url LINK button.
  */
 export async function sendInstagramLinkButtonDm(
   igAccountIgsid: string,
@@ -148,9 +148,11 @@ export async function sendInstagramLinkButtonDm(
   messageText: string,
   buttonTitle: string,
   url: string,
-  accessToken: string
+  accessToken: string,
+  authMethod: InstagramAuthMethod = 'instagram_login'
 ): Promise<string> {
   const to = recipientLabel(recipient);
+
   const body = {
     recipient: recipientJson(recipient),
     message: {
@@ -159,65 +161,92 @@ export async function sendInstagramLinkButtonDm(
         payload: {
           template_type: 'button',
           text: messageText.slice(0, 640),
-          buttons: [{ type: 'web_url', url, title: buttonTitle.trim().slice(0, 20) || 'Open link' }],
+          buttons: [
+            {
+              type: 'web_url',
+              url,
+              title: buttonTitle.trim().slice(0, 20) || 'Open link',
+            },
+          ],
         },
       },
     },
   };
 
-  debugLog('instagram', 'info', 'link_button_dm_attempt', 'processing', `Sending link-button DM to ${to}`, {
-    igAccountIgsid,
-    recipient: to,
-    buttonTitle,
-  });
+  debugLog('instagram', 'info', 'link_button_dm_attempt', 'processing',
+    `Sending link-button DM to ${to}`,
+    { igAccountIgsid, recipient: to, buttonTitle }
+  );
 
-  const res = await fetch(`${META_GRAPH_BASE}/${igAccountIgsid}/messages?access_token=${accessToken}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const res = await fetch(
+    `${getMetaGraphBase(authMethod)}/${igAccountIgsid}/messages?access_token=${accessToken}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }
+  );
 
   const data = (await res.json()) as MetaSendMessageResponse & MetaErrorResponse;
+
   if (!res.ok) {
     debugLog('instagram', 'warn', 'link_button_dm_failed', 'error',
-      `Link-button DM to ${to} rejected - ${data.error?.code}: ${data.error?.message ?? 'unknown'} (caller falls back to inline link)`,
-      { igAccountIgsid, recipient: to, httpStatus: res.status, metaErrorCode: data.error?.code });
+      `Link-button DM to ${to} rejected - ${data.error?.code}: ${data.error?.message ?? 'unknown'}`,
+      { igAccountIgsid, recipient: to, httpStatus: res.status, metaErrorCode: data.error?.code }
+    );
     throwFromMetaResponse('sendInstagramLinkButtonDm', res.status, data);
   }
 
-  debugLog('instagram', 'info', 'link_button_dm_sent', 'ok', `Link-button DM sent to ${to} - messageId=${data.message_id}`, {
-    igAccountIgsid,
-    recipient: to,
-    messageId: data.message_id,
-  });
+  debugLog('instagram', 'info', 'link_button_dm_sent', 'ok',
+    `Link-button DM sent to ${to}`,
+    { igAccountIgsid, recipient: to, messageId: data.message_id }
+  );
+
   return data.message_id;
 }
 
 /** Posts a public reply to a comment. Non-fatal - DM still sends on failure. */
-export async function replyToComment(commentId: string, replyText: string, accessToken: string): Promise<void> {
-  debugLog('instagram', 'info', 'comment_reply_attempt', 'processing', `Replying to comment ${commentId}`, {
-    commentId,
-    replyPreview: replyText.slice(0, 80),
-  });
+export async function replyToComment(
+  commentId: string,
+  replyText: string,
+  accessToken: string,
+  authMethod: InstagramAuthMethod = 'instagram_login'
+): Promise<void> {
+  debugLog('instagram', 'info', 'comment_reply_attempt', 'processing',
+    `Replying to comment ${commentId}`,
+    { commentId, replyPreview: replyText.slice(0, 80) }
+  );
 
-  const res = await fetch(`${META_GRAPH_BASE}/${commentId}/replies`, {
+  const res = await fetch(`${getMetaGraphBase(authMethod)}/${commentId}/replies`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message: replyText, access_token: accessToken }),
+    body: JSON.stringify({
+      message: replyText,
+      access_token: accessToken,
+    }),
   });
 
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as MetaErrorResponse;
-    logger.warn({ commentId, status: res.status, metaCode: body.error?.code }, 'Comment reply failed - continuing');
+
+    logger.warn(
+      { commentId, status: res.status, metaCode: body.error?.code },
+      'Comment reply failed - continuing'
+    );
+
     debugLog('instagram', 'warn', 'comment_reply_failed', 'error',
-      `Comment reply to ${commentId} failed - ${body.error?.code}: ${body.error?.message ?? 'unknown'} (DM will still send)`,
-      { commentId, httpStatus: res.status });
+      `Comment reply to ${commentId} failed - ${body.error?.code}: ${body.error?.message ?? 'unknown'}`,
+      { commentId, httpStatus: res.status }
+    );
   } else {
-    debugLog('instagram', 'info', 'comment_reply_sent', 'ok', `Public reply posted to comment ${commentId}`, { commentId });
+    debugLog('instagram', 'info', 'comment_reply_sent', 'ok',
+      `Public reply posted to comment ${commentId}`,
+      { commentId }
+    );
   }
 }
 
-/** Sends the ask-to-follow generic template (Visit Profile + confirm postback). */
+/** Sends the ask-to-follow generic template. */
 export async function sendAskToFollowDm(
   igAccountIgsid: string,
   recipientIgsid: string,
@@ -228,10 +257,12 @@ export async function sendAskToFollowDm(
     visitProfileButtonTitle: string;
     confirmButtonTitle: string;
     confirmPayload: string;
-  }
+  },
+  authMethod: InstagramAuthMethod = 'instagram_login'
 ): Promise<string> {
-  // Generic template title limit: 80 chars
-  const title = options.message.length <= 80 ? options.message : options.message.slice(0, 77) + '…';
+  const title = options.message.length <= 80
+    ? options.message
+    : options.message.slice(0, 77) + '…';
 
   const body = {
     recipient: { id: recipientIgsid },
@@ -262,24 +293,30 @@ export async function sendAskToFollowDm(
     },
   };
 
-  const res = await fetch(`${META_GRAPH_BASE}/${igAccountIgsid}/messages?access_token=${accessToken}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const res = await fetch(
+    `${getMetaGraphBase(authMethod)}/${igAccountIgsid}/messages?access_token=${accessToken}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }
+  );
 
   const data = (await res.json()) as MetaSendMessageResponse & MetaErrorResponse;
+
   if (!res.ok) {
     debugLog('instagram', 'error', 'ask_follow_dm_failed', 'error',
       `Ask-to-follow DM to ${recipientIgsid} FAILED - ${data.error?.code}: ${data.error?.message ?? 'unknown'}`,
-      { igAccountIgsid, recipientIgsid, httpStatus: res.status });
+      { igAccountIgsid, recipientIgsid, httpStatus: res.status }
+    );
     throwFromMetaResponse('sendAskToFollowDm', res.status, data);
   }
-  debugLog('instagram', 'info', 'ask_follow_dm_sent', 'ok', `Ask-to-follow DM sent to ${recipientIgsid}`, {
-    igAccountIgsid,
-    recipientIgsid,
-    messageId: data.message_id,
-  });
+
+  debugLog('instagram', 'info', 'ask_follow_dm_sent', 'ok',
+    `Ask-to-follow DM sent to ${recipientIgsid}`,
+    { igAccountIgsid, recipientIgsid, messageId: data.message_id }
+  );
+
   return data.message_id;
 }
 
@@ -288,13 +325,21 @@ export async function sendInstagramCardDm(
   igAccountIgsid: string,
   recipientIgsid: string,
   accessToken: string,
-  card: { imageUrl?: string; title?: string; subtitle?: string; buttons?: { title: string; url: string }[] }
+  card: {
+    imageUrl?: string;
+    title?: string;
+    subtitle?: string;
+    buttons?: { title: string; url: string }[];
+  },
+  authMethod: InstagramAuthMethod = 'instagram_login'
 ): Promise<string> {
   const element: Record<string, unknown> = {
     title: (card.title ?? '').slice(0, 80) || ' ',
   };
+
   if (card.subtitle) element['subtitle'] = card.subtitle.slice(0, 80);
   if (card.imageUrl) element['image_url'] = card.imageUrl;
+
   if (card.buttons?.length) {
     element['buttons'] = card.buttons.slice(0, 3).map((btn) => ({
       type: 'web_url',
@@ -303,36 +348,44 @@ export async function sendInstagramCardDm(
     }));
   }
 
-  const res = await fetch(`${META_GRAPH_BASE}/${igAccountIgsid}/messages?access_token=${accessToken}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      recipient: { id: recipientIgsid },
-      message: { attachment: { type: 'template', payload: { template_type: 'generic', elements: [element] } } },
-    }),
-  });
+  const res = await fetch(
+    `${getMetaGraphBase(authMethod)}/${igAccountIgsid}/messages?access_token=${accessToken}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recipient: { id: recipientIgsid },
+        message: {
+          attachment: {
+            type: 'template',
+            payload: {
+              template_type: 'generic',
+              elements: [element],
+            },
+          },
+        },
+      }),
+    }
+  );
 
   const data = (await res.json()) as MetaSendMessageResponse & MetaErrorResponse;
+
   if (!res.ok) {
     debugLog('instagram', 'error', 'card_dm_failed', 'error',
       `Card DM to ${recipientIgsid} FAILED - ${data.error?.code}: ${data.error?.message ?? 'unknown'}`,
-      { igAccountIgsid, recipientIgsid, httpStatus: res.status });
+      { igAccountIgsid, recipientIgsid, httpStatus: res.status }
+    );
     throwFromMetaResponse('sendInstagramCardDm', res.status, data);
   }
-  debugLog('instagram', 'info', 'card_dm_sent', 'ok', `Card DM sent to ${recipientIgsid}`, {
-    igAccountIgsid,
-    recipientIgsid,
-    messageId: data.message_id,
-  });
+
+  debugLog('instagram', 'info', 'card_dm_sent', 'ok',
+    `Card DM sent to ${recipientIgsid}`,
+    { igAccountIgsid, recipientIgsid, messageId: data.message_id }
+  );
+
   return data.message_id;
 }
-
-/**
- * Instagram User Profile API - available for any user who has messaged the
- * business (always our case: a button tap IS a message). Exposes username and
- * `is_user_follow_business` - the same follow signal commercial tools use for
- * "require follow" gates.
- */
+/** Instagram audience profile information. */
 export interface AudienceProfile {
   username: string | null;
   followsBusiness: boolean | null;
@@ -340,23 +393,40 @@ export interface AudienceProfile {
 
 export async function getAudienceProfile(
   audienceIgsid: string,
-  accessToken: string
+  accessToken: string,
+  authMethod: InstagramAuthMethod = 'instagram_login'
 ): Promise<AudienceProfile | null> {
   try {
     const res = await fetch(
-      `${META_GRAPH_BASE}/${audienceIgsid}?fields=username,is_user_follow_business&access_token=${accessToken}`
+      `${getMetaGraphBase(authMethod)}/${audienceIgsid}?fields=username,is_user_follow_business&access_token=${accessToken}`
     );
+
     if (!res.ok) {
       const body = (await res.json().catch(() => ({}))) as MetaErrorResponse;
-      debugLog('instagram', 'warn', 'profile_fetch_failed', 'error',
+
+      debugLog(
+        'instagram',
+        'warn',
+        'profile_fetch_failed',
+        'error',
         `Profile fetch for ${audienceIgsid} failed - ${body.error?.code}: ${body.error?.message ?? `HTTP ${res.status}`}`,
-        { audienceIgsid, httpStatus: res.status });
+        { audienceIgsid, httpStatus: res.status }
+      );
+
       return null;
     }
-    const data = (await res.json()) as { username?: string; is_user_follow_business?: boolean };
+
+    const data = (await res.json()) as {
+      username?: string;
+      is_user_follow_business?: boolean;
+    };
+
     return {
       username: data.username ?? null,
-      followsBusiness: typeof data.is_user_follow_business === 'boolean' ? data.is_user_follow_business : null,
+      followsBusiness:
+        typeof data.is_user_follow_business === 'boolean'
+          ? data.is_user_follow_business
+          : null,
     };
   } catch (err) {
     logger.warn({ audienceIgsid, err }, 'Profile fetch network error');
@@ -365,59 +435,106 @@ export async function getAudienceProfile(
 }
 
 /**
- * Real follow check. Returns: true = follows · false = does not follow ·
- * null = unknown (API error / field unavailable). Callers must FAIL OPEN on
- * null - never block a legitimate person because the check itself hiccuped.
+ * Returns whether the audience member follows the connected business account.
+ * null means the API could not determine the relationship.
  */
 export async function checkUserFollowsBusiness(
   audienceIgsid: string,
-  accessToken: string
+  accessToken: string,
+  authMethod: InstagramAuthMethod = 'instagram_login'
 ): Promise<boolean | null> {
-  const profile = await getAudienceProfile(audienceIgsid, accessToken);
+  const profile = await getAudienceProfile(audienceIgsid, accessToken, authMethod);
   const follows = profile?.followsBusiness ?? null;
+
   if (follows !== null) {
-    debugLog('instagram', 'info', 'follow_check', 'ok',
+    debugLog(
+      'instagram',
+      'info',
+      'follow_check',
+      'ok',
       `Follow check: ${audienceIgsid} ${follows ? 'FOLLOWS' : 'does NOT follow'} the account`,
-      { audienceIgsid, follows });
+      { audienceIgsid, follows }
+    );
   }
+
   return follows;
 }
 
 /**
- * Subscribes an IG account to webhook fields. Meta requires this per-account
- * call in addition to the app-level webhook URL - without it, NO events fire.
+ * Subscribes an Instagram account to webhook fields.
  */
-export const WEBHOOK_SUBSCRIBED_FIELDS = 'comments,messages,messaging_postbacks,message_reactions,message_edit';
+export const WEBHOOK_SUBSCRIBED_FIELDS =
+  'comments,messages,messaging_postbacks,message_reactions,message_edit';
 
-export async function subscribeToWebhookFields(igUserId: string, accessToken: string): Promise<{ ok: boolean; body: string }> {
-  const params = new URLSearchParams({ subscribed_fields: WEBHOOK_SUBSCRIBED_FIELDS, access_token: accessToken });
-  const res = await fetch(`https://graph.instagram.com/${META_API_VERSION}/${igUserId}/subscribed_apps`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: params.toString(),
+export async function subscribeToWebhookFields(
+  igUserId: string,
+  accessToken: string,
+  authMethod: InstagramAuthMethod = 'instagram_login'
+): Promise<{ ok: boolean; body: string }> {
+  const params = new URLSearchParams({
+    subscribed_fields: WEBHOOK_SUBSCRIBED_FIELDS,
+    access_token: accessToken,
   });
+
+  const res = await fetch(
+    `${getMetaGraphBase(authMethod)}/${igUserId}/subscribed_apps`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+    }
+  );
+
   const body = await res.text();
+
   if (!res.ok) {
     logger.warn({ igUserId, status: res.status, body }, 'Webhook field subscription failed');
   } else {
-    debugLog('oauth', 'info', 'webhook_subscribe', 'ok', `Webhook fields subscribed for ${igUserId}`, {
-      fields: WEBHOOK_SUBSCRIBED_FIELDS,
-    });
+    debugLog(
+      'oauth',
+      'info',
+      'webhook_subscribe',
+      'ok',
+      `Webhook fields subscribed for ${igUserId}`,
+      { fields: WEBHOOK_SUBSCRIBED_FIELDS }
+    );
   }
+
   return { ok: res.ok, body };
 }
 
-export async function getSubscribedFields(igUserId: string, accessToken: string): Promise<{ ok: boolean; fields: string[]; raw: string }> {
-  const res = await fetch(`https://graph.instagram.com/${META_API_VERSION}/${igUserId}/subscribed_apps?access_token=${accessToken}`);
+export async function getSubscribedFields(
+  igUserId: string,
+  accessToken: string,
+  authMethod: InstagramAuthMethod = 'instagram_login'
+): Promise<{ ok: boolean; fields: string[]; raw: string }> {
+  const res = await fetch(
+    `${getMetaGraphBase(authMethod)}/${igUserId}/subscribed_apps?access_token=${accessToken}`
+  );
+
   const raw = await res.text();
-  if (!res.ok) return { ok: false, fields: [], raw };
-  type SubscribedAppsResponse = { data?: Array<{ subscribed_fields?: string[] }>; subscribed_fields?: string[] };
+
+  if (!res.ok) {
+    return { ok: false, fields: [], raw };
+  }
+
+  type SubscribedAppsResponse = {
+    data?: Array<{ subscribed_fields?: string[] }>;
+    subscribed_fields?: string[];
+  };
+
   let parsed: SubscribedAppsResponse = {};
+
   try {
     parsed = JSON.parse(raw) as SubscribedAppsResponse;
   } catch {
-    /* ignore */
+    // Ignore invalid JSON.
   }
-  const fields = parsed.data?.[0]?.subscribed_fields ?? parsed.subscribed_fields ?? [];
+
+  const fields =
+    parsed.data?.[0]?.subscribed_fields ??
+    parsed.subscribed_fields ??
+    [];
+
   return { ok: true, fields, raw };
 }

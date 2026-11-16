@@ -13,6 +13,9 @@ export interface InstagramAccount {
   profile_picture_url: string | null;
   is_active: boolean;
   token_expires_at: string | null;
+auth_method: 'instagram_login' | 'unified_login';
+token_type: string | null;
+facebook_page_id: string | null;
   token_status: TokenStatus;
   token_days_remaining: number | null;
   is_paused: boolean;
