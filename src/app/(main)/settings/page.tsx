@@ -93,6 +93,10 @@ function SettingsContent() {
                 setup_required: "Primero guarda las credenciales de tu aplicación de Meta en el asistente de configuración.",
                 server_error: "Algo salió mal. Revisa los detalles e inténtalo nuevamente.",
                 invalid_callback: "Respuesta de conexión no válida. Inténtalo nuevamente.",
+                no_linked_instagram: "Se encontraron páginas de Facebook, pero ninguna tiene vinculada una cuenta profesional de Instagram. Comprueba que Instagram esté conectado a la página y sea una cuenta Business o Creator.",
+                facebook_permissions_missing: "Meta no concedió todos los permisos necesarios para consultar tus páginas de Facebook. Revisa los permisos de la aplicación y vuelve a autorizar la conexión.",
+                no_accessible_facebook_pages: "Facebook autorizó la conexión, pero no se encontraron páginas accesibles para esta cuenta. Comprueba que la página esté agregada al portafolio Creator Academy Pro y asignada al usuario del sistema PROSPECTOR AI.",
+                facebook_page_token_missing: "Se encontró una página o cuenta profesional, pero Meta no devolvió un token de acceso válido para esa página. Revisa los permisos y la asignación de activos.",
                 test_user_required: "Añade esta cuenta de Instagram como usuario de prueba para utilizar la herramienta de automatización. En tu aplicación de Meta, entra en App Roles > Roles > Add People > Instagram Tester. Después, acepta la invitación en Instagram y vuelve a conectar."
             };
 

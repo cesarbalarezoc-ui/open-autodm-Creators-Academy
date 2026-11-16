@@ -161,9 +161,144 @@ export async function exchangeFacebookCode(
   }
 }
 
+export interface FacebookTokenInspection {
+  isValid: boolean;
+  appIdMatches: boolean;
+  tokenType: string | null;
+  scopes: string[];
+  missingPermissions: string[];
+  granularScopes: Array<{
+    scope: string;
+    targetCount: number | null;
+  }>;
+}
+
+export async function inspectFacebookUserToken(
+  userAccessToken: string,
+  appId: string,
+  appSecret: string
+): Promise<FacebookTokenInspection | null> {
+  const requiredPermissions = [
+    'pages_show_list',
+    'pages_read_engagement',
+  ];
+
+  await debugLog(
+    'oauth',
+    'info',
+    'facebook_token_inspection_started',
+    'processing',
+    'Inspecting Facebook user token permissions'
+  );
+
+  try {
+    const params = new URLSearchParams({
+      input_token: userAccessToken,
+      access_token: appId + '|' + appSecret,
+    });
+
+    const response = await fetch(
+      `${FACEBOOK_GRAPH_BASE}/debug_token?${params.toString()}`,
+      {
+        method: 'GET',
+        cache: 'no-store',
+        signal: AbortSignal.timeout(20000),
+      }
+    );
+
+    const payload = await response.json() as {
+      data?: {
+        app_id?: string;
+        type?: string;
+        is_valid?: boolean;
+        scopes?: string[];
+        granular_scopes?: Array<{
+          scope: string;
+          target_ids?: Array<string | number> | null;
+        }>;
+      };
+      error?: {
+        message?: string;
+        type?: string;
+        code?: number;
+      };
+    };
+
+    if (!response.ok || payload.error || !payload.data) {
+      await debugLog(
+        'oauth',
+        'warn',
+        'facebook_token_inspection',
+        'error',
+        'Facebook token inspection failed',
+        {
+          httpStatus: response.status,
+          errorCode: payload.error?.code ?? null,
+          errorType: payload.error?.type ?? null,
+          errorMessage: payload.error?.message ?? response.statusText,
+        }
+      );
+      return null;
+    }
+
+    const token = payload.data;
+    const scopes = token.scopes ?? [];
+
+    const inspection: FacebookTokenInspection = {
+      isValid: token.is_valid === true,
+      appIdMatches: token.app_id === appId,
+      tokenType: token.type ?? null,
+      scopes,
+      missingPermissions: requiredPermissions.filter(
+        (permission) => !scopes.includes(permission)
+      ),
+      granularScopes: (token.granular_scopes ?? []).map((item) => ({
+        scope: item.scope,
+        targetCount: item.target_ids?.length ?? null,
+      })),
+    };
+
+    await debugLog(
+      'oauth',
+      'info',
+      'facebook_token_inspection',
+      inspection.isValid && inspection.appIdMatches ? 'ok' : 'error',
+      'Facebook token inspection completed',
+      {
+        isValid: inspection.isValid,
+        appIdMatches: inspection.appIdMatches,
+        tokenType: inspection.tokenType,
+        scopes: inspection.scopes,
+        missingPermissions: inspection.missingPermissions,
+        granularScopes: inspection.granularScopes,
+      }
+    );
+
+    return inspection;
+  } catch (err) {
+    await debugLog(
+      'oauth',
+      'warn',
+      'facebook_token_inspection_exception',
+      'error',
+      'Facebook token inspection threw an exception',
+      {
+        errorMessage: err instanceof Error ? err.message : String(err),
+      }
+    );
+    return null;
+  }
+}
+export interface FacebookPagesLookupResult {
+  validPages: FacebookPage[];
+  totalPages: number;
+  pagesWithPageToken: number;
+  pagesWithInstagramAccount: number;
+}
+
 export async function getFacebookPagesWithInstagram(
   userAccessToken: string
-): Promise<FacebookPage[]> {
+): Promise<FacebookPagesLookupResult> {
   const pages: FacebookPage[] = [];
 
   await debugLog(
@@ -185,16 +320,18 @@ export async function getFacebookPagesWithInstagram(
     let nextUrl: string | null =
       `${FACEBOOK_GRAPH_BASE}/me/accounts?${params.toString()}`;
 
+    let pageNumber = 0;
+
     while (nextUrl) {
+      pageNumber += 1;
+
       await debugLog(
         'oauth',
         'info',
         'facebook_pages_request_started',
         'processing',
         'Requesting Facebook Pages from Graph API',
-        {
-          pageNumber: pages.length + 1,
-        }
+        { pageNumber }
       );
 
       const response = await fetch(nextUrl, {
@@ -238,6 +375,7 @@ export async function getFacebookPagesWithInstagram(
         'Facebook Pages response received',
         {
           httpStatus: response.status,
+          pageNumber,
           pageCount: receivedPages.length,
           pagesWithPageToken: receivedPages.filter(
             (page) => Boolean(page.access_token)
@@ -251,6 +389,14 @@ export async function getFacebookPagesWithInstagram(
       pages.push(...receivedPages);
       nextUrl = data.paging?.next ?? null;
     }
+
+    const pagesWithPageToken = pages.filter(
+      (page) => Boolean(page.access_token)
+    ).length;
+
+    const pagesWithInstagramAccount = pages.filter(
+      (page) => Boolean(page.instagram_business_account?.id)
+    ).length;
 
     const validPages = pages.filter(
       (page) =>
@@ -267,17 +413,18 @@ export async function getFacebookPagesWithInstagram(
       'Facebook Pages lookup completed',
       {
         totalPages: pages.length,
-        pagesWithPageToken: pages.filter(
-          (page) => Boolean(page.access_token)
-        ).length,
-        pagesWithInstagramAccount: pages.filter(
-          (page) => Boolean(page.instagram_business_account?.id)
-        ).length,
+        pagesWithPageToken,
+        pagesWithInstagramAccount,
         pagesWithBoth: validPages.length,
       }
     );
 
-    return validPages;
+    return {
+      validPages,
+      totalPages: pages.length,
+      pagesWithPageToken,
+      pagesWithInstagramAccount,
+    };
   } catch (err) {
     await debugLog(
       'oauth',
@@ -294,7 +441,6 @@ export async function getFacebookPagesWithInstagram(
     throw err;
   }
 }
-
 export async function subscribeFacebookInstagramWebhooks(
   instagramUserId: string,
   pageAccessToken: string

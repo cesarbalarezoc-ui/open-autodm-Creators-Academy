@@ -18,6 +18,7 @@ import {
 } from '@/lib/instagram/oauth';
 import {
   exchangeFacebookCode,
+  inspectFacebookUserToken,
   getFacebookPagesWithInstagram,
   subscribeFacebookInstagramWebhooks,
 } from '@/lib/instagram/facebook-oauth';
@@ -88,7 +89,7 @@ export async function GET(request: Request): Promise<Response> {
     let expiresAt: Date | null = null;
 
     if (authMethod === 'unified_login') {
-      debugLog(
+      await debugLog(
         'oauth',
         'info',
         'facebook_oauth_exchange',
@@ -104,30 +105,63 @@ export async function GET(request: Request): Promise<Response> {
         redirectUri
       );
 
-      const pages = await getFacebookPagesWithInstagram(
+      const tokenInspection = await inspectFacebookUserToken(
+        facebookToken.access_token,
+        settings.metaAppId,
+        settings.metaAppSecret
+      );
+      const pageLookup = await getFacebookPagesWithInstagram(
         facebookToken.access_token
       );
 
-      if (pages.length > 1) {
-  logger.warn(
-    { userId, pageCount: pages.length },
-    'Multiple Instagram professional accounts found'
-  );
+      const pages = pageLookup.validPages;
 
-  return settingsRedirect('instagram_error=multiple_instagram_accounts');
-}
+      if (pageLookup.totalPages === 0) {
+        const missingPermissions = tokenInspection?.missingPermissions ?? [];
+        logger.warn(
+          { userId, missingPermissions },
+          'Facebook token has no accessible Pages'
+        );
 
-const page = pages[0];
+        return settingsRedirect(
+          missingPermissions.length > 0
+            ? 'instagram_error=facebook_permissions_missing'
+            : 'instagram_error=no_accessible_facebook_pages'
+        );
+      }
 
-if (!page) {
-  return settingsRedirect('instagram_error=no_linked_instagram');
-}
-
-const instagram = page.instagram_business_account;
-      if (!instagram?.id || !page.access_token) {
+      if (pageLookup.pagesWithInstagramAccount === 0) {
         return settingsRedirect('instagram_error=no_linked_instagram');
       }
 
+      if (pages.length === 0) {
+        return settingsRedirect('instagram_error=facebook_page_token_missing');
+      }
+
+      if (pages.length > 1) {
+        logger.warn(
+          { userId, pageCount: pages.length },
+          'Multiple Instagram professional accounts found'
+        );
+
+        return settingsRedirect(
+          'instagram_error=multiple_instagram_accounts'
+        );
+      }
+
+      const page = pages[0];
+
+      if (!page) {
+        return settingsRedirect('instagram_error=facebook_page_token_missing');
+      }
+
+      const instagram = page.instagram_business_account;
+
+      if (!instagram?.id || !page.access_token) {
+        return settingsRedirect(
+          'instagram_error=facebook_page_token_missing'
+        );
+      }
       instagramUserId = instagram.id;
       username = instagram.username ?? instagram.id;
       profilePictureUrl = instagram.profile_picture_url ?? null;
@@ -146,7 +180,7 @@ const instagram = page.instagram_business_account;
         ).toISOString();
       }
     } else {
-      debugLog(
+      await debugLog(
         'oauth',
         'info',
         'instagram_oauth_exchange',
@@ -272,7 +306,7 @@ const instagram = page.instagram_business_account;
       );
     }
 
-    debugLog(
+    await debugLog(
       'oauth',
       'info',
       'oauth_complete',
@@ -295,7 +329,7 @@ const instagram = page.instagram_business_account;
       'Instagram OAuth callback failed'
     );
 
-    debugLog(
+    await debugLog(
       'oauth',
       'error',
       'oauth_failed',
