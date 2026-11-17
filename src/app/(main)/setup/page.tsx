@@ -96,22 +96,22 @@ export default function SetupPage() {
 
     const [appId, setAppId] = useState("");
     const [appSecret, setAppSecret] = useState("");
-    const [metaLoginConfigId, setMetaLoginConfigId] = useState("");
+
     const [fbAppSecret, setFbAppSecret] = useState("");
     const [saveError, setSaveError] = useState<string | null>(null);
     const [justSaved, setJustSaved] = useState(false);
 
 useEffect(() => {
     setAppId(setup?.metaAppId ?? "");
-    setMetaLoginConfigId(setup?.metaLoginConfigId ?? "");
-}, [setup?.metaAppId, setup?.metaLoginConfigId]);
+
+}, [setup?.metaAppId]);
 
     const hyleSave = () => {
         setSaveError(null);
         saveMutation.mutate(
             {
                 metaAppId: appId.trim(),
-                metaLoginConfigId: metaLoginConfigId.trim() || null,
+
                 metaAppSecret: appSecret.trim(),
                 ...(fbAppSecret.trim() ? { metaFbAppSecret: fbAppSecret.trim() } : {}),
             },
@@ -189,20 +189,6 @@ useEffect(() => {
                             className={inputCls}
                         />
                     </div>
-<div>
-    <label className="micro-label block mb-1">
-        Meta Login Configuration ID
-    </label>
-    <input
-        value={metaLoginConfigId}
-        onChange={(e) => setMetaLoginConfigId(e.target.value)}
-        placeholder="Introduce tu Configuration ID"
-        className={inputCls}
-    />
-    <p className="text-[11px] text-muted-foreground mt-1">
-        Identificador de configuración de Instagram Business Login proporcionado por Meta.
-    </p>
-</div>
                     <div>
                         <label className="micro-label block mb-1">Secreto de la aplicación de Instagram</label>
                         <input
