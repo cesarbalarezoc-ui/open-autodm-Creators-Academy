@@ -124,7 +124,7 @@ function SettingsContent() {
         setConnectingIG(true);
 
         try {
-            const { url } = await apiClient<{ url: string }>("/instagram/connect?method=unified_login");
+            const { url } = await apiClient<{ url: string }>("/instagram/connect");
             window.location.href = url;
 
         } catch (err) {
