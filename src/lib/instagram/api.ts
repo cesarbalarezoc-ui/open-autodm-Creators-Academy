@@ -18,7 +18,7 @@ import { classifyMetaError } from '@/lib/instagram/errors';
 
 const logger = createLogger('instagram');
 
-export const META_API_VERSION = 'v23.0';
+export const META_API_VERSION = 'v27.0';
 export type InstagramAuthMethod = 'instagram_login' | 'unified_login';
 
 function getMetaGraphBase(authMethod: InstagramAuthMethod = 'instagram_login'): string {
