@@ -19,11 +19,16 @@ import { classifyMetaError } from '@/lib/instagram/errors';
 const logger = createLogger('instagram');
 
 export const META_API_VERSION = 'v23.0';
-export type InstagramAuthMethod = 'instagram_login' | 'unified_login';
+export const META_UNIFIED_LOGIN_API_VERSION = 'v27.0';
+export type InstagramAuthMethod = 'instagram_login' | 'unified_login' | 'instagram_unified_login';
 
 function getMetaGraphBase(authMethod: InstagramAuthMethod = 'instagram_login'): string {
-  const host = authMethod === 'unified_login' ? 'graph.facebook.com' : 'graph.instagram.com';
-  return `https://${host}/${META_API_VERSION}`;
+  const isUnifiedGraph = authMethod === 'unified_login' || authMethod === 'instagram_unified_login';
+  const host = isUnifiedGraph ? 'graph.facebook.com' : 'graph.instagram.com';
+  const version = authMethod === 'instagram_unified_login'
+    ? META_UNIFIED_LOGIN_API_VERSION
+    : META_API_VERSION;
+  return `https://${host}/${version}`;
 }
 
 interface MetaSendMessageResponse {
