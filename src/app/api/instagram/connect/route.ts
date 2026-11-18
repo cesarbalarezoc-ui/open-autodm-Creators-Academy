@@ -44,10 +44,12 @@ export async function GET(request: Request): Promise<Response> {
   const requestUrl = new URL(request.url);
   const requestedMethod = requestUrl.searchParams.get('method');
 
+  // New Meta apps use Unified Login. Keep the legacy Instagram Login
+  // path available only when it is explicitly requested.
   const authMethod =
-    requestedMethod === 'unified_login'
-      ? 'unified_login'
-      : 'instagram_login';
+    requestedMethod === 'instagram_login'
+      ? 'instagram_login'
+      : 'unified_login';
 
   const redirectUri = `${getAppUrl(request)}/api/instagram/callback`;
 
