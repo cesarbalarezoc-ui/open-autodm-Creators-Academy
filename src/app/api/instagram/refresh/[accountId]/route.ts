@@ -28,7 +28,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
 
   const { data: account, error: fetchError } = await db
     .from('instagram_accounts')
-    .select('id, user_id, username, access_token_encrypted, token_expires_at')
+    .select('id, user_id, username, access_token_encrypted, token_expires_at, auth_method')
     .eq('id', accountId)
     .eq('user_id', user.id)
     .eq('is_active', true)
@@ -38,7 +38,41 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
     return Response.json({ error: 'Instagram account not found' }, { status: 404 });
   }
 
-  const { status } = computeTokenStatus(account.token_expires_at as string | null);
+  const { status, daysRemaining } = computeTokenStatus(account.token_expires_at as string | null);
+  const authMethod = account.auth_method as string | null;
+
+  if (authMethod === 'instagram_unified_login') {
+    if (!account.token_expires_at) {
+      return Response.json({
+        success: true,
+        refresh_required: false,
+        token_expires_at: null,
+        token_days_remaining: null,
+        token_status: 'ok',
+        message: 'This Unified Login configuration does not expire; no refresh is required.',
+      });
+    }
+
+    if (status === 'expired' || status === 'expiring') {
+      return Response.json(
+        {
+          error: 'reconnect_required',
+          message: 'This Unified Login token must be renewed through the Meta login flow. Please reconnect your Instagram account.',
+        },
+        { status: 409 }
+      );
+    }
+
+    return Response.json({
+      success: true,
+      refresh_required: false,
+      token_expires_at: account.token_expires_at,
+      token_days_remaining: daysRemaining,
+      token_status: status,
+      message: 'The Unified Login token is still valid; no refresh is required yet.',
+    });
+  }
+
   if (status === 'expired') {
     return Response.json(
       { error: 'token_expired', message: 'Token has expired. Please reconnect your Instagram account.' },
