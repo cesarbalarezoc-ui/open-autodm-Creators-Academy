@@ -73,9 +73,19 @@ function SettingsContent() {
         const igError = searchParams.get("instagram_error");
 
         if (igConnected === "true") {
+            const connectedCount = Number(searchParams.get("connected_count") ?? "1");
+            const skippedCount = Number(searchParams.get("skipped_count") ?? "0");
+            const webhookWarning = searchParams.get("webhook_warning") === "true";
+            const accountLabel = connectedCount === 1 ? "cuenta" : "cuentas";
+            const skippedMessage = skippedCount > 0
+                ? ` Se omitieron ${skippedCount} porque ya pertenecían a otro usuario.`
+                : "";
+            const webhookMessage = webhookWarning
+                ? " La cuenta quedó vinculada, pero alguna suscripción de webhook necesita revisión."
+                : "";
             setBanner({
-                type: "success",
-                message: "Cuenta de Instagram conectada correctamente."
+                type: webhookWarning ? "error" : "success",
+                message: `${connectedCount} ${accountLabel} de Instagram conectada(s) correctamente.${skippedMessage}${webhookMessage}`
             });
 
             void queryClient.invalidateQueries({
@@ -89,6 +99,10 @@ function SettingsContent() {
                 access_denied: "Se canceló la conexión con Instagram.",
                 no_instagram_business_account: "No se encontró una cuenta de Instagram Business o Creator. Primero cambia tu cuenta de Instagram a una cuenta profesional.",
                 account_already_connected: "Esta cuenta de Instagram ya está conectada a otro usuario de esta plataforma.",
+                no_shared_instagram_accounts: "Meta no devolvió cuentas profesionales compartidas. Verifica que autorizaste la cuenta Business o Creator correcta en el portafolio comercial.",
+                no_connectable_instagram_accounts: "No se pudo guardar ninguna cuenta compartida. Comprueba que no estén vinculadas a otro usuario.",
+                meta_login_config_required: "Falta el Meta Login Configuration ID (config_id) en el asistente de configuración.",
+                meta_app_secret_required: "Falta el Meta App Secret de App Settings → Basic en el asistente de configuración.",
                 state_mismatch: "La conexión ha caducado. Inténtalo nuevamente.",
                 setup_required: "Primero guarda las credenciales de tu aplicación de Meta en el asistente de configuración.",
                 server_error: "Algo salió mal. Revisa los detalles e inténtalo nuevamente.",
