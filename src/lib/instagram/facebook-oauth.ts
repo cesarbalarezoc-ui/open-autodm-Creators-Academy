@@ -456,14 +456,12 @@ export async function getFacebookPagesWithInstagram(
 export async function getAssignedInstagramAccounts(
   accessToken: string
 ): Promise<FacebookInstagramAccount[]> {
-  const params = new URLSearchParams({
-    fields: 'id,username,profile_picture_url',
-    limit: '100',
-  });
-
+  // The Meta reference for this edge documents no query parameters.
+  // Read the assigned asset IDs first, then expand the public IG User fields
+  // on each asset using the documented IG User node endpoint.
   let nextUrl: string | null =
-    `${FACEBOOK_GRAPH_BASE}/me/assigned_instagram_accounts?${params.toString()}`;
-  const accounts = new Map<string, FacebookInstagramAccount>();
+    `${FACEBOOK_GRAPH_BASE}/me/assigned_instagram_accounts`;
+  const accountIds = new Set<string>();
   let pageCount = 0;
 
   while (nextUrl && pageCount < 10) {
@@ -487,7 +485,7 @@ export async function getAssignedInstagramAccounts(
     });
 
     const payload = await response.json() as {
-      data?: FacebookInstagramAccount[];
+      data?: Array<{ id?: string }>;
       paging?: { next?: string };
       error?: { message?: string; code?: number };
     };
@@ -509,7 +507,7 @@ export async function getAssignedInstagramAccounts(
     }
 
     for (const account of payload.data ?? []) {
-      if (account.id) accounts.set(account.id, account);
+      if (account.id) accountIds.add(account.id);
     }
 
     pageCount += 1;
@@ -520,17 +518,52 @@ export async function getAssignedInstagramAccounts(
     throw new Error('Meta returned too many pages of assigned Instagram accounts');
   }
 
-  const result = [...accounts.values()];
+  const accounts = await Promise.all(
+    [...accountIds].map(async (id): Promise<FacebookInstagramAccount> => {
+      const profileUrl = new URL(`${FACEBOOK_GRAPH_BASE}/${encodeURIComponent(id)}`);
+      profileUrl.searchParams.set('fields', 'id,username,profile_picture_url');
+
+      const response = await fetch(profileUrl.toString(), {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${accessToken}` },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(20_000),
+      });
+
+      const profile = await response.json() as FacebookInstagramAccount & {
+        error?: { message?: string; code?: number };
+      };
+
+      if (!response.ok || profile.error) {
+        await debugLog(
+          'oauth',
+          'warn',
+          'assigned_instagram_profile',
+          'error',
+          'Could not expand an assigned Instagram asset profile; retaining its ID',
+          { instagramUserId: id, httpStatus: response.status, errorCode: profile.error?.code ?? null }
+        );
+        return { id };
+      }
+
+      return {
+        id: profile.id || id,
+        username: profile.username,
+        profile_picture_url: profile.profile_picture_url,
+      };
+    })
+  );
+
   await debugLog(
     'oauth',
     'info',
     'assigned_instagram_accounts',
-    result.length > 0 ? 'ok' : 'skipped',
-    `Unified Login returned ${result.length} assigned Instagram account(s)`,
-    { accountCount: result.length }
+    accounts.length > 0 ? 'ok' : 'skipped',
+    `Unified Login returned ${accounts.length} assigned Instagram account(s)`,
+    { accountCount: accounts.length }
   );
 
-  return result;
+  return accounts;
 }
 
 export async function subscribeFacebookInstagramWebhooks(
