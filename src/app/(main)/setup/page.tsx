@@ -98,13 +98,14 @@ export default function SetupPage() {
     const [appSecret, setAppSecret] = useState("");
 
     const [fbAppSecret, setFbAppSecret] = useState("");
+    const [loginConfigId, setLoginConfigId] = useState("");
     const [saveError, setSaveError] = useState<string | null>(null);
     const [justSaved, setJustSaved] = useState(false);
 
 useEffect(() => {
     setAppId(setup?.metaAppId ?? "");
-
-}, [setup?.metaAppId]);
+    setLoginConfigId(setup?.metaLoginConfigId ?? "");
+}, [setup?.metaAppId, setup?.metaLoginConfigId]);
 
     const hyleSave = () => {
         setSaveError(null);
@@ -113,6 +114,7 @@ useEffect(() => {
                 metaAppId: appId.trim(),
 
                 metaAppSecret: appSecret.trim(),
+                metaLoginConfigId: loginConfigId.trim() || null,
                 ...(fbAppSecret.trim() ? { metaFbAppSecret: fbAppSecret.trim() } : {}),
             },
             {
@@ -156,9 +158,9 @@ useEffect(() => {
             <StepCard step={1} title="Crea tu aplicación de Meta" icon={ExternalLink} done={configured}>
                 <NumberedList items={[
                     <>Ve a <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener noreferrer" className="text-primary font-medium underline underline-offset-2">developers.facebook.com/apps</a> y haz clic en <b>Create App (Crear aplicación)</b>.</>,
-                    <>Caso de uso <b>Other (Otro)</b> → tipo de aplicación <b>Business (Empresa)</b>.</>,
-                    <>En el panel de tu aplicación: <b>Instagram → Set up</b> (adds &ldquo;Instagram API with Instagram Login&rdquo;).</>,
-                    <>Ve a <b>Instagram → API setup with Instagram login → 3. Set up Instagram business login</b> y copia el <b>ID de la aplicación de Instagram</b> y el <b>secreto de la aplicación de Instagram</b> que aparecen allí. No utilices los datos de App settings → Basic - esos datos pertenecen a la aplicación principal de Meta y el inicio de sesión de Instagram los rechazará con el error &ldquo;Invalid platform app&rdquo;.</>,
+                    <>Caso de uso <b>Manage messaging & content on Instagram</b> (Administrar mensajes y contenido en Instagram). La aplicación debe pertenecer a un portafolio comercial de Meta.</>,
+                    <>En el panel de tu aplicación, abre <b>Use cases → Manage messaging & content on Instagram → Customize → API setup with Unified Login</b>.</>,
+                    <>En <b>Configure your app</b>, crea una configuración, solicita <b>instagram_basic</b>, <b>instagram_manage_messages</b> e <b>instagram_manage_comments</b>, selecciona <b>Use this configuration</b> y registra la URL de devolución de llamada que aparece en el paso 3.</>,
                     <>Tu Instagram debe ser una cuenta <b>Business or Creator</b> (puedes cambiarla desde Instagram en: Settings → Account type).</>,
                 ]} />
                 <div className="mt-4 flex items-start gap-2 text-[12px] text-muted-foreground bg-muted/50 rounded-lg px-3 py-2.5">
@@ -181,7 +183,7 @@ useEffect(() => {
                 )}
                 <div className="space-y-3">
                     <div>
-                        <label className="micro-label block mb-1">ID de la aplicación de Instagram</label>
+                        <label className="micro-label block mb-1">Meta App ID (App Settings → Basic)</label>
                         <input
                             value={appId}
                             onChange={(e) => setAppId(e.target.value)}
@@ -190,7 +192,7 @@ useEffect(() => {
                         />
                     </div>
                     <div>
-                        <label className="micro-label block mb-1">Secreto de la aplicación de Instagram</label>
+                        <label className="micro-label block mb-1">Secreto anterior de Instagram (solo para el método clásico)</label>
                         <input
                             type="password"
                             value={appSecret}
@@ -203,7 +205,7 @@ useEffect(() => {
                         </p>
                     </div>
                     <div>
-                        <label className="micro-label block mb-1">Secreto de la aplicación de Facebook <span className="normal-case font-normal opacity-70">(opcional)</span></label>
+                        <label className="micro-label block mb-1">Meta App Secret (App Settings → Basic)</label>
                         <input
                             type="password"
                             value={fbAppSecret}
@@ -212,8 +214,19 @@ useEffect(() => {
                             className={inputCls}
                         />
                         <p className="text-[11px] text-muted-foreground mt-1">
-                            Meta firma los webhooks con uno de los dos secretos, según el tipo de aplicación. Si el panel de depuración muestra
-                            &ldquo;signature mismatch&rdquo; en eventos reales, pega aquí el secreto de App settings → Basic here.
+                            Es el secreto de App settings → Basic. Se cifra y se utiliza solo en el servidor para cambiar el código OAuth por el token de Unified Login y verificar webhooks. Nunca se muestra nuevamente.
+                        </p>
+                    </div>
+                    <div>
+                        <label className="micro-label block mb-1">Meta Login Configuration ID (config_id)</label>
+                        <input
+                            value={loginConfigId}
+                            onChange={(e) => setLoginConfigId(e.target.value)}
+                            placeholder="ID de la configuración de Unified Login"
+                            className={inputCls}
+                        />
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                            Copia el ID de la configuración que seleccionaste en API setup with Unified Login. No es un secreto.
                         </p>
                     </div>
                     {saveError && <p className="text-[12px] text-destructive font-medium">{saveError}</p>}
@@ -241,7 +254,7 @@ useEffect(() => {
                     <div className="space-y-5">
                         <div>
                             <p className="text-[13px] font-medium text-foreground mb-2.5">
-                                A. Webhooks - <span className="text-muted-foreground font-normal">Instagram → API setup with Instagram login → 2. Configure webhooks</span>
+                                A. Webhooks - <span className="text-muted-foreground font-normal">Manage messaging & content on Instagram → API setup with Unified Login → Configure webhooks</span>
                             </p>
                             <div className="space-y-2.5">
                                 <CopyField label="URL de devolución de llamada" value={setup?.webhookUrl ?? ""} />
@@ -254,7 +267,7 @@ useEffect(() => {
                         <div className="h-px bg-border" />
                         <div>
                             <p className="text-[13px] font-medium text-foreground mb-2.5">
-                                B. Business login - <span className="text-muted-foreground font-normal">3. Set up Instagram business login → Business login settings</span>
+                                B. Unified Login - <span className="text-muted-foreground font-normal">API setup with Unified Login → configuración seleccionada</span>
                             </p>
                             <CopyField label="OAuth redirect URI" value={setup?.oauthRedirectUri ?? ""} />
                             <p className="text-[11px] text-muted-foreground mt-2">
