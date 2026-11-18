@@ -255,6 +255,10 @@ export async function GET(request: Request): Promise<Response> {
     let expiresAt: Date | null = null;
 
     if (authMethod === 'unified_login') {
+      if (!settings.metaAppSecret) {
+        return settingsRedirect('instagram_error=legacy_instagram_secret_required');
+      }
+
       await debugLog(
         'oauth',
         'info',
@@ -346,6 +350,10 @@ export async function GET(request: Request): Promise<Response> {
         ).toISOString();
       }
     } else {
+      if (!settings.metaAppSecret) {
+        return settingsRedirect('instagram_error=legacy_instagram_secret_required');
+      }
+
       await debugLog(
         'oauth',
         'info',
