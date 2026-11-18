@@ -97,7 +97,8 @@ export async function GET(request: Request): Promise<Response> {
       const unifiedToken = await exchangeInstagramUnifiedCode(
         code,
         settings.metaAppId,
-        settings.metaFbAppSecret
+        settings.metaFbAppSecret,
+        redirectUri
       );
       const identity = await getInstagramUnifiedIdentity(unifiedToken.access_token);
       const sharedAccounts = await getInstagramUnifiedAccounts(unifiedToken.access_token);
