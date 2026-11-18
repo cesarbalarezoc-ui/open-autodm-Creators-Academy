@@ -153,11 +153,13 @@ export interface InstagramUnifiedIdentity {
 export async function exchangeInstagramUnifiedCode(
     code: string,
     appId: string,
-    appSecret: string
+    appSecret: string,
+    redirectUri: string
 ): Promise<InstagramUnifiedTokenResponse> {
     const params = new URLSearchParams({
         client_id: appId,
         client_secret: appSecret,
+        redirect_uri: redirectUri,
         code,
     });
 
