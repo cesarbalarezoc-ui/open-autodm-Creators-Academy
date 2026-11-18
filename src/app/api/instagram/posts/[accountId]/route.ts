@@ -10,7 +10,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { decrypt } from '@/lib/crypto';
 import { getEnv } from '@/lib/env';
 import { createLogger } from '@/lib/logger';
-import { META_API_VERSION } from '@/lib/instagram/api';
+import { META_API_VERSION, META_UNIFIED_LOGIN_API_VERSION } from '@/lib/instagram/api';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -163,9 +163,12 @@ export async function GET(
     // 4. CONSULTAR CACHÉ
 
     const authMethod = igAccount.auth_method ?? 'instagram_login';
-    const metaGraphBase = authMethod === 'unified_login'
-        ? `https://graph.facebook.com/${META_API_VERSION}`
-        : `https://graph.instagram.com/${META_API_VERSION}`;
+    const metaGraphBase =
+        authMethod === 'instagram_unified_login'
+            ? `https://graph.facebook.com/${META_UNIFIED_LOGIN_API_VERSION}`
+            : authMethod === 'unified_login'
+                ? `https://graph.facebook.com/${META_API_VERSION}`
+                : `https://graph.instagram.com/${META_API_VERSION}`;
 
     cleanCache();
 
