@@ -142,7 +142,7 @@ export async function GET(request: Request): Promise<Response> {
           facebook_user_token_encrypted: null,
           facebook_user_token_expires_at: null,
           client_business_id: identity.clientBusinessId,
-          system_user_id: identity.systemUserId,
+          system_user_app_scoped_id: identity.systemUserAppScopedId,
           login_config_id: settings.metaLoginConfigId,
           is_active: true,
           paused_until: null,
