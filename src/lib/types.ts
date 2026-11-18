@@ -64,7 +64,7 @@ export interface InstagramAccountRow {
   token_type: string | null;
   facebook_page_id: string | null;
   client_business_id: string | null;
-  system_user_id: string | null;
+  system_user_app_scoped_id: string | null;
   login_config_id: string | null;
   is_active: boolean;
   paused_until: string | null;
