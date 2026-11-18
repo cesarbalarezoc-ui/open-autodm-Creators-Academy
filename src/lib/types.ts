@@ -60,9 +60,12 @@ export interface InstagramAccountRow {
   profile_picture_url: string | null;
   access_token_encrypted: string;
   token_expires_at: string | null;
-  auth_method: 'instagram_login' | 'unified_login';
+  auth_method: 'instagram_login' | 'unified_login' | 'instagram_unified_login';
   token_type: string | null;
   facebook_page_id: string | null;
+  client_business_id: string | null;
+  system_user_id: string | null;
+  login_config_id: string | null;
   is_active: boolean;
   paused_until: string | null;
   pause_reason: string | null;
