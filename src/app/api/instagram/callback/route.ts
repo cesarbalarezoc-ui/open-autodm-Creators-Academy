@@ -19,7 +19,7 @@ import {
 import {
   exchangeFacebookCode,
   inspectFacebookUserToken,
-  getFacebookPagesWithInstagram,
+  getAssignedInstagramAccounts,
   subscribeFacebookInstagramWebhooks,
 } from '@/lib/instagram/facebook-oauth';
 import { subscribeToWebhookFields } from '@/lib/instagram/api';
@@ -77,14 +77,13 @@ export async function GET(request: Request): Promise<Response> {
     const env = getEnv();
     const db = createServiceClient();
 
-    let instagramUserId: string;
-    let username: string;
-    let name: string | null = null;
-    let profilePictureUrl: string | null = null;
-    let pageId: string | null = null;
-    let pageAccessToken: string;
-    let facebookUserTokenEncrypted: string | null = null;
-    let facebookUserTokenExpiresAt: string | null = null;
+    const instagramAccounts: Array<{
+      id: string;
+      username?: string;
+      name?: string;
+      profile_picture_url?: string;
+    }> = [];
+    let accessToken: string;
     let tokenType = 'bearer';
     let expiresAt: Date | null = null;
 
@@ -94,90 +93,55 @@ export async function GET(request: Request): Promise<Response> {
         'info',
         'facebook_oauth_exchange',
         'processing',
-        'Processing Facebook Login for Business',
+        'Processing Facebook Login for Business (Unified Login)',
         { userId }
       );
 
+      // Facebook Login for Business uses the Facebook app secret. The returned
+      // SUAT is scoped to the business assets explicitly selected in Meta.
+      const facebookAppSecret = settings.metaFbAppSecret ?? settings.metaAppSecret;
       const facebookToken = await exchangeFacebookCode(
         code,
         settings.metaAppId,
-        settings.metaAppSecret,
+        facebookAppSecret,
         redirectUri
       );
 
       const tokenInspection = await inspectFacebookUserToken(
         facebookToken.access_token,
         settings.metaAppId,
-        settings.metaAppSecret
-      );
-      const pageLookup = await getFacebookPagesWithInstagram(
-        facebookToken.access_token
+        facebookAppSecret
       );
 
-      const pages = pageLookup.validPages;
+      if (tokenInspection && (!tokenInspection.isValid || !tokenInspection.appIdMatches)) {
+        throw new Error('Meta returned an invalid access token or a token for a different app.');
+      }
 
-      if (pageLookup.totalPages === 0) {
-        const missingPermissions = tokenInspection?.missingPermissions ?? [];
-        logger.warn(
-          { userId, missingPermissions },
-          'Facebook token has no accessible Pages'
+      // Unified Login grants Instagram assets directly. Do not depend on a
+      // Facebook Page or /me/accounts for this flow.
+      try {
+        instagramAccounts.push(
+          ...(await getAssignedInstagramAccounts(facebookToken.access_token))
         );
-
-        return settingsRedirect(
-          missingPermissions.length > 0
-            ? 'instagram_error=facebook_permissions_missing'
-            : 'instagram_error=no_accessible_facebook_pages'
-        );
+      } catch (assetError) {
+        const message = assetError instanceof Error ? assetError.message : String(assetError);
+        if (/permission|code 200|code 10/i.test(message)) {
+          return settingsRedirect('instagram_error=unified_login_permissions_required');
+        }
+        throw assetError;
       }
 
-      if (pageLookup.pagesWithInstagramAccount === 0) {
-        return settingsRedirect('instagram_error=no_linked_instagram');
+      if (instagramAccounts.length === 0) {
+        return settingsRedirect('instagram_error=no_assigned_instagram_accounts');
       }
 
-      if (pages.length === 0) {
-        return settingsRedirect('instagram_error=facebook_page_token_missing');
-      }
+      accessToken = facebookToken.access_token;
+      tokenType = tokenInspection?.tokenType ?? 'SYSTEM_USER';
 
-      if (pages.length > 1) {
-        logger.warn(
-          { userId, pageCount: pages.length },
-          'Multiple Instagram professional accounts found'
-        );
-
-        return settingsRedirect(
-          'instagram_error=multiple_instagram_accounts'
-        );
-      }
-
-      const page = pages[0];
-
-      if (!page) {
-        return settingsRedirect('instagram_error=facebook_page_token_missing');
-      }
-
-      const instagram = page.instagram_business_account;
-
-      if (!instagram?.id || !page.access_token) {
-        return settingsRedirect(
-          'instagram_error=facebook_page_token_missing'
-        );
-      }
-      instagramUserId = instagram.id;
-      username = instagram.username ?? instagram.id;
-      profilePictureUrl = instagram.profile_picture_url ?? null;
-      pageId = page.id;
-      pageAccessToken = page.access_token;
-      tokenType = facebookToken.token_type ?? 'bearer';
-
-      facebookUserTokenEncrypted = encrypt(
-        facebookToken.access_token,
-        env.TOKEN_ENCRYPTION_KEY
-      );
-
+      // The selected configuration is set to "Never". Keep the database
+      // expiry null unless Meta explicitly returns an expiry.
       if (facebookToken.expires_in) {
-        facebookUserTokenExpiresAt = new Date(
-          Date.now() + facebookToken.expires_in * 1000
-        ).toISOString();
+        expiresAt = new Date(Date.now() + facebookToken.expires_in * 1000);
       }
     } else {
       await debugLog(
@@ -201,26 +165,26 @@ export async function GET(request: Request): Promise<Response> {
         settings.metaAppSecret
       );
 
-      const profile = await getInstagramProfile(
-        longLived.access_token
-      );
+      const profile = await getInstagramProfile(longLived.access_token);
 
-      instagramUserId = profile.user_id;
-      username = profile.username;
-      name = profile.name ?? null;
-      profilePictureUrl = profile.profile_picture_url ?? null;
-      pageAccessToken = longLived.access_token;
-      expiresAt = new Date(
-        Date.now() + longLived.expires_in * 1000
-      );
+      instagramAccounts.push({
+        id: profile.user_id,
+        username: profile.username,
+        name: profile.name ?? undefined,
+        profile_picture_url: profile.profile_picture_url ?? undefined,
+      });
+      accessToken = longLived.access_token;
+      tokenType = longLived.token_type;
+      expiresAt = new Date(Date.now() + longLived.expires_in * 1000);
     }
 
     const encryptedToken = encrypt(
-      pageAccessToken,
+      accessToken,
       env.TOKEN_ENCRYPTION_KEY
     );
 
-    // Ensure the profile exists before inserting the account.
+    // Ensure the authenticated platform profile exists before saving any
+    // connected Instagram assets for this user.
     const { error: profileError } = await db
       .from('profiles')
       .upsert(
@@ -232,32 +196,30 @@ export async function GET(request: Request): Promise<Response> {
       throw profileError;
     }
 
-    const accountData = {
-      user_id: userId,
-      instagram_user_id: instagramUserId,
-      username,
-      name,
-      profile_picture_url: profilePictureUrl,
-      access_token_encrypted: encryptedToken,
-      token_expires_at: expiresAt?.toISOString() ?? null,
-      auth_method: authMethod,
-      token_type: tokenType,
-      facebook_page_id: pageId,
-      facebook_user_token_encrypted: facebookUserTokenEncrypted,
-      facebook_user_token_expires_at: facebookUserTokenExpiresAt,
-      is_active: true,
-      paused_until: null,
-      pause_reason: null,
-    };
+    // A configuration can grant one or more Instagram assets. Save each
+    // selected asset under the user from the signed OAuth state, and never
+    // transfer an Instagram account already owned by a different platform user.
+    for (const instagram of instagramAccounts) {
+      const instagramUserId = instagram.id;
+      const username = instagram.username ?? instagram.id;
 
-    const { error: insertError } = await db
-      .from('instagram_accounts')
-      .insert(accountData);
-
-    if (insertError) {
-      if (insertError.code !== '23505') {
-        throw insertError;
-      }
+      const accountData = {
+        user_id: userId,
+        instagram_user_id: instagramUserId,
+        username,
+        name: instagram.name ?? null,
+        profile_picture_url: instagram.profile_picture_url ?? null,
+        access_token_encrypted: encryptedToken,
+        token_expires_at: expiresAt?.toISOString() ?? null,
+        auth_method: authMethod,
+        token_type: tokenType,
+        facebook_page_id: null,
+        facebook_user_token_encrypted: null,
+        facebook_user_token_expires_at: null,
+        is_active: true,
+        paused_until: null,
+        pause_reason: null,
+      };
 
       const { data: existingAccount, error: lookupError } = await db
         .from('instagram_accounts')
@@ -269,40 +231,94 @@ export async function GET(request: Request): Promise<Response> {
         throw lookupError;
       }
 
-      if (!existingAccount || existingAccount.user_id !== userId) {
-        return settingsRedirect(
-          'instagram_error=account_already_connected'
+      if (existingAccount && existingAccount.user_id !== userId) {
+        return settingsRedirect('instagram_error=account_already_connected');
+      }
+
+      if (existingAccount) {
+        const { error: updateError } = await db
+          .from('instagram_accounts')
+          .update(accountData)
+          .eq('id', existingAccount.id)
+          .eq('user_id', userId);
+
+        if (updateError) {
+          throw updateError;
+        }
+      } else {
+        const { error: insertError } = await db
+          .from('instagram_accounts')
+          .insert(accountData);
+
+        if (insertError) {
+          // A concurrent OAuth callback may have inserted this account after
+          // the lookup. Re-check ownership before updating it.
+          if (insertError.code !== '23505') {
+            throw insertError;
+          }
+
+          const { data: racedAccount, error: raceLookupError } = await db
+            .from('instagram_accounts')
+            .select('id, user_id')
+            .eq('instagram_user_id', instagramUserId)
+            .maybeSingle();
+
+          if (raceLookupError) {
+            throw raceLookupError;
+          }
+
+          if (!racedAccount || racedAccount.user_id !== userId) {
+            return settingsRedirect('instagram_error=account_already_connected');
+          }
+
+          const { error: raceUpdateError } = await db
+            .from('instagram_accounts')
+            .update(accountData)
+            .eq('id', racedAccount.id)
+            .eq('user_id', userId);
+
+          if (raceUpdateError) {
+            throw raceUpdateError;
+          }
+        }
+      }
+
+      // Subscribe each selected Instagram account with the token and API
+      // host that belong to its authentication method.
+      if (authMethod === 'unified_login') {
+        const result = await subscribeFacebookInstagramWebhooks(
+          instagramUserId,
+          accessToken
         );
-      }
 
-      const { error: updateError } = await db
-        .from('instagram_accounts')
-        .update(accountData)
-        .eq('id', existingAccount.id)
-        .eq('user_id', userId);
-
-      if (updateError) {
-        throw updateError;
-      }
-    }
-
-    // Subscribe the account using the appropriate token and API host.
-    if (authMethod === 'unified_login') {
-      const result = await subscribeFacebookInstagramWebhooks(
-        instagramUserId,
-        pageAccessToken
-      );
-
-      if (!result.ok) {
-        logger.warn(
-          { userId, instagramUserId, response: result.body },
-          'Facebook Instagram webhook subscription failed'
+        if (!result.ok) {
+          logger.warn(
+            { userId, instagramUserId, response: result.body.slice(0, 300) },
+            'Unified Login Instagram webhook subscription failed'
+          );
+        }
+      } else {
+        const result = await subscribeToWebhookFields(
+          instagramUserId,
+          accessToken,
+          'instagram_login'
         );
+
+        if (!result.ok) {
+          logger.warn(
+            { userId, instagramUserId, response: result.body.slice(0, 300) },
+            'Instagram webhook subscription failed'
+          );
+        }
       }
-    } else {
-      await subscribeToWebhookFields(
-        instagramUserId,
-        pageAccessToken
+
+      await debugLog(
+        'oauth',
+        'info',
+        'instagram_asset_connected',
+        'ok',
+        `Instagram @${username} connected using ${authMethod}`,
+        { userId, instagramUserId }
       );
     }
 
@@ -311,13 +327,13 @@ export async function GET(request: Request): Promise<Response> {
       'info',
       'oauth_complete',
       'ok',
-      `Instagram @${username} connected using ${authMethod}`,
-      { userId }
+      `${instagramAccounts.length} Instagram account(s) connected using ${authMethod}`,
+      { userId, accountCount: instagramAccounts.length }
     );
 
     logger.info(
-      { userId, username, authMethod },
-      'Instagram account connected'
+      { userId, accountCount: instagramAccounts.length, authMethod },
+      'Instagram account(s) connected'
     );
 
     return settingsRedirect('instagram_connected=true');
