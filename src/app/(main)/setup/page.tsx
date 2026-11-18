@@ -321,9 +321,7 @@ useEffect(() => {
                     <div className="flex items-start gap-2 text-[12px] text-muted-foreground bg-muted/50 rounded-lg px-3 py-2.5">
                         <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-500" />
                         <span>
-                            <b>Para habilitar el acceso público:</b> para que las automatizaciones se activen con comentarios de cualquier persona, solicita <b>Advanced Access</b> mediante la revisión gratuita de Meta
-                            App Review - sube una grabación breve de tu automatización funcionando. La aprobación suele tardar unos días; después no será necesario modificar nada en
-                            esta aplicación.
+                            <b>Para habilitar el acceso público:</b> solicita <b>Advanced Access</b> mediante Meta App Review para los permisos que utilizarán tus alumnos. Para producción, la aplicación también debe estar en modo <b>Live</b> y completar la <b>verificación del negocio</b>. Meta exige Advanced Access para recibir notificaciones de comentarios.
                         </span>
                     </div>
                 </div>
