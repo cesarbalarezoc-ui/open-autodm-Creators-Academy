@@ -15,6 +15,9 @@ import {
   exchangeCodeForToken,
   exchangeForLongLivedToken,
   getInstagramProfile,
+  exchangeInstagramUnifiedCode,
+  getInstagramUnifiedIdentity,
+  getInstagramUnifiedAccounts,
 } from '@/lib/instagram/oauth';
 import {
   exchangeFacebookCode,
@@ -55,7 +58,7 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   let userId: string;
-  let authMethod: 'instagram_login' | 'unified_login';
+  let authMethod: 'instagram_login' | 'unified_login' | 'instagram_unified_login';
 
   try {
     const state = await verifyOAuthState(stateToken);
@@ -76,6 +79,169 @@ export async function GET(request: Request): Promise<Response> {
     const redirectUri = `${appUrl}/api/instagram/callback`;
     const env = getEnv();
     const db = createServiceClient();
+
+    if (authMethod === 'instagram_unified_login') {
+      if (!settings.metaFbAppSecret || !settings.metaLoginConfigId) {
+        return settingsRedirect('instagram_error=setup_required');
+      }
+
+      await debugLog(
+        'oauth',
+        'info',
+        'instagram_unified_login_exchange',
+        'processing',
+        'Processing Instagram API with Unified Login',
+        { userId }
+      );
+
+      const unifiedToken = await exchangeInstagramUnifiedCode(
+        code,
+        settings.metaAppId,
+        settings.metaFbAppSecret
+      );
+      const identity = await getInstagramUnifiedIdentity(unifiedToken.access_token);
+      const sharedAccounts = await getInstagramUnifiedAccounts(unifiedToken.access_token);
+
+      if (sharedAccounts.length === 0) {
+        return settingsRedirect('instagram_error=no_shared_instagram_accounts');
+      }
+
+      const { error: profileError } = await db
+        .from('profiles')
+        .upsert(
+          { id: userId },
+          { onConflict: 'id', ignoreDuplicates: true }
+        );
+
+      if (profileError) throw profileError;
+
+      const encryptedToken = encrypt(
+        unifiedToken.access_token,
+        env.TOKEN_ENCRYPTION_KEY
+      );
+      const expiresAt = typeof unifiedToken.expires_in === 'number' && unifiedToken.expires_in > 0
+        ? new Date(Date.now() + unifiedToken.expires_in * 1000).toISOString()
+        : null;
+
+      let connectedCount = 0;
+      let skippedCount = 0;
+      let webhookFailures = 0;
+
+      for (const sharedAccount of sharedAccounts) {
+        const accountData = {
+          user_id: userId,
+          instagram_user_id: sharedAccount.id,
+          username: sharedAccount.username,
+          name: null,
+          profile_picture_url: null,
+          access_token_encrypted: encryptedToken,
+          token_expires_at: expiresAt,
+          auth_method: 'instagram_unified_login',
+          token_type: 'system_user',
+          facebook_page_id: null,
+          facebook_user_token_encrypted: null,
+          facebook_user_token_expires_at: null,
+          client_business_id: identity.clientBusinessId,
+          system_user_id: identity.systemUserId,
+          login_config_id: settings.metaLoginConfigId,
+          is_active: true,
+          paused_until: null,
+          pause_reason: null,
+        };
+
+        const { data: existingAccount, error: lookupError } = await db
+          .from('instagram_accounts')
+          .select('id, user_id')
+          .eq('instagram_user_id', sharedAccount.id)
+          .maybeSingle();
+
+        if (lookupError) throw lookupError;
+
+        if (existingAccount && existingAccount.user_id !== userId) {
+          skippedCount += 1;
+          continue;
+        }
+
+        if (existingAccount) {
+          const { error: updateError } = await db
+            .from('instagram_accounts')
+            .update(accountData)
+            .eq('id', existingAccount.id)
+            .eq('user_id', userId);
+
+          if (updateError) throw updateError;
+        } else {
+          const { error: insertError } = await db
+            .from('instagram_accounts')
+            .insert(accountData);
+
+          if (insertError) {
+            if (insertError.code !== '23505') throw insertError;
+
+            // Re-check ownership after a concurrent connection attempt.
+            const { data: racedAccount, error: raceLookupError } = await db
+              .from('instagram_accounts')
+              .select('id, user_id')
+              .eq('instagram_user_id', sharedAccount.id)
+              .maybeSingle();
+
+            if (raceLookupError) throw raceLookupError;
+            if (!racedAccount || racedAccount.user_id !== userId) {
+              skippedCount += 1;
+              continue;
+            }
+
+            const { error: retryUpdateError } = await db
+              .from('instagram_accounts')
+              .update(accountData)
+              .eq('id', racedAccount.id)
+              .eq('user_id', userId);
+
+            if (retryUpdateError) throw retryUpdateError;
+          }
+        }
+
+        connectedCount += 1;
+
+        const subscription = await subscribeToWebhookFields(
+          sharedAccount.id,
+          unifiedToken.access_token,
+          'instagram_unified_login'
+        );
+        if (!subscription.ok) webhookFailures += 1;
+      }
+
+      if (connectedCount === 0) {
+        return settingsRedirect(
+          skippedCount > 0
+            ? 'instagram_error=account_already_connected'
+            : 'instagram_error=no_connectable_instagram_accounts'
+        );
+      }
+
+      const resultParams = new URLSearchParams({
+        instagram_connected: 'true',
+        connected_count: String(connectedCount),
+        skipped_count: String(skippedCount),
+      });
+      if (webhookFailures > 0) resultParams.set('webhook_warning', 'true');
+
+      await debugLog(
+        'oauth',
+        'info',
+        'instagram_unified_login_complete',
+        'ok',
+        'Instagram professional accounts connected with Unified Login',
+        { userId, connectedCount, skippedCount, webhookFailures }
+      );
+
+      logger.info(
+        { userId, connectedCount, skippedCount, webhookFailures },
+        'Instagram Unified Login completed'
+      );
+
+      return settingsRedirect(resultParams.toString());
+    }
 
     let instagramUserId: string;
     let username: string;
