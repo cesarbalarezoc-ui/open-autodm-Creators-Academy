@@ -5,7 +5,7 @@
 
 import { getAuthenticatedUser, unauthorized } from '@/lib/auth';
 import { createServiceClient } from '@/lib/supabase/service';
-import { subscribeToWebhookFields, WEBHOOK_SUBSCRIBED_FIELDS } from '@/lib/instagram/api';
+import { subscribeToWebhookFields, WEBHOOK_SUBSCRIBED_FIELDS, type InstagramAuthMethod } from '@/lib/instagram/api';
 import { decrypt } from '@/lib/crypto';
 import { getEnv } from '@/lib/env';
 
@@ -23,7 +23,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
 
   const { data: account, error: fetchError } = await db
     .from('instagram_accounts')
-    .select('id, user_id, username, instagram_user_id, access_token_encrypted')
+    .select('id, user_id, username, instagram_user_id, access_token_encrypted, auth_method')
     .eq('id', accountId)
     .eq('user_id', user.id)
     .eq('is_active', true)
@@ -40,7 +40,11 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
     return Response.json({ error: 'Failed to decrypt token' }, { status: 500 });
   }
 
-  const result = await subscribeToWebhookFields(account.instagram_user_id as string, accessToken);
+  const result = await subscribeToWebhookFields(
+    account.instagram_user_id as string,
+    accessToken,
+    (account.auth_method as InstagramAuthMethod) ?? 'instagram_login'
+  );
   if (!result.ok) {
     return Response.json(
       { error: 'resubscription_failed', message: `Meta API error: ${result.body.slice(0, 300)}` },
