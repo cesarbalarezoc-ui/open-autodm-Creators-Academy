@@ -143,7 +143,7 @@ export interface InstagramUnifiedAccount {
 
 export interface InstagramUnifiedIdentity {
     clientBusinessId: string;
-    systemUserId: string;
+    systemUserAppScopedId: string;
 }
 
 /**
@@ -219,7 +219,7 @@ export async function getInstagramUnifiedIdentity(
 
     return {
         clientBusinessId: payload.client_business_id,
-        systemUserId: payload.id,
+        systemUserAppScopedId: payload.id,
     };
 }
 
