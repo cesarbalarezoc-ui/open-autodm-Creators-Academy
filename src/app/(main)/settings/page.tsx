@@ -77,15 +77,16 @@ function SettingsContent() {
             const skippedCount = Number(searchParams.get("skipped_count") ?? "0");
             const webhookWarning = searchParams.get("webhook_warning") === "true";
             const accountLabel = connectedCount === 1 ? "cuenta" : "cuentas";
+            const connectedVerb = connectedCount === 1 ? "conectada" : "conectadas";
             const skippedMessage = skippedCount > 0
                 ? ` Se omitieron ${skippedCount} porque ya pertenecían a otro usuario.`
                 : "";
             const webhookMessage = webhookWarning
-                ? " La cuenta quedó vinculada, pero alguna suscripción de webhook necesita revisión."
+                ? " Alguna suscripción de webhook necesita revisión."
                 : "";
             setBanner({
                 type: webhookWarning ? "error" : "success",
-                message: `${connectedCount} ${accountLabel} de Instagram conectada(s) correctamente.${skippedMessage}${webhookMessage}`
+                message: `${connectedCount} ${accountLabel} de Instagram ${connectedVerb} correctamente.${skippedMessage}${webhookMessage}`
             });
 
             void queryClient.invalidateQueries({
@@ -104,7 +105,8 @@ function SettingsContent() {
                 meta_login_config_required: "Falta el Meta Login Configuration ID (config_id) en el asistente de configuración.",
                 meta_app_secret_required: "Falta el Meta App Secret de App Settings → Basic en el asistente de configuración.",
                 state_mismatch: "La conexión ha caducado. Inténtalo nuevamente.",
-                setup_required: "Primero guarda las credenciales de tu aplicación de Meta en el asistente de configuración.",
+                setup_required: "Primero guarda el Meta App ID y el Meta App Secret en el asistente de configuración.",
+                legacy_instagram_secret_required: "Este método clásico necesita el antiguo secreto de la aplicación de Instagram. Para la nueva conexión, usa Unified Login.",
                 server_error: "Algo salió mal. Revisa los detalles e inténtalo nuevamente.",
                 invalid_callback: "Respuesta de conexión no válida. Inténtalo nuevamente.",
                 no_linked_instagram: "Se encontraron páginas de Facebook, pero ninguna tiene vinculada una cuenta profesional de Instagram. Comprueba que Instagram esté conectado a la página y sea una cuenta Business o Creator.",
@@ -245,10 +247,10 @@ function SettingsContent() {
         } catch (err) {
             const apiErr = err instanceof ApiError ? err : null;
 
-            if (apiErr?.status === 400) {
+            if (apiErr?.status === 400 || apiErr?.status === 409) {
                 setBanner({
                     type: "error",
-                    message: "El token ha caducado o ya no es válido. Vuelve a conectar tu cuenta de Instagram."
+                    message: "El acceso de Instagram necesita reconectarse. Vuelve a conectar tu cuenta desde esta página."
                 });
             } else {
                 setBanner({
