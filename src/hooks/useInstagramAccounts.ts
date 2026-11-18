@@ -37,8 +37,13 @@ export function useRefreshInstagramToken() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (accountId: string) =>
-      apiClient<{ success: boolean; token_expires_at: string; token_days_remaining: number }>
-        (`/instagram/refresh/${accountId}`, { method: 'POST' }),
+      apiClient<{
+        success: boolean;
+        refresh_required?: boolean;
+        token_expires_at: string | null;
+        token_days_remaining: number | null;
+        token_status: TokenStatus;
+      }>(`/instagram/refresh/${accountId}`, { method: 'POST' }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['instagram-accounts'] });
     },
