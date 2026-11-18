@@ -201,7 +201,7 @@ useEffect(() => {
                             className={inputCls}
                         />
                         <p className="text-[11px] text-muted-foreground mt-1">
-                            Se cifra antes de guardarse en la base de datos. Nunca se registra ni vuelve a mostrarse.
+                            Solo lo necesitan las conexiones antiguas de Instagram Login. Unified Login utiliza el Meta App Secret de App settings → Basic que se ingresa abajo.
                         </p>
                     </div>
                     <div>
@@ -210,7 +210,7 @@ useEffect(() => {
                             type="password"
                             value={fbAppSecret}
                             onChange={(e) => setFbAppSecret(e.target.value)}
-                            placeholder="Solo si falla la verificación de la firma del webhook"
+                            placeholder="Secreto de App settings → Basic (32 caracteres)"
                             className={inputCls}
                         />
                         <p className="text-[11px] text-muted-foreground mt-1">
@@ -236,7 +236,6 @@ useEffect(() => {
                                           disabled={
     saveMutation.isPending ||
     !appId.trim() ||
-    (!appSecret.trim() && !configured) ||
     (!fbAppSecret.trim() && !configured)
 }
       className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-foreground text-background text-[13px] font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
