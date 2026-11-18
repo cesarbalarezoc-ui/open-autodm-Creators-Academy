@@ -1,11 +1,9 @@
 /**
- * Instagram Business Login OAuth helpers.
+ * Instagram OAuth helpers.
  *
- * Supports two authentication methods:
- * - instagram_login: Instagram Business Login.
- * - unified_login: Facebook Login for Business.
- *
- * OAuth state is signed and includes the authentication method.
+ * Supports the legacy Instagram Business Login and legacy Facebook Login
+ * flows, plus the current Instagram API with Unified Login flow.
+ * OAuth state is signed and includes the selected authentication method.
  */
 
 import { SignJWT, jwtVerify } from 'jose';
@@ -239,7 +237,6 @@ export async function getInstagramUnifiedAccounts(
         const params = new URLSearchParams({
             fields: 'id,username',
             access_token: accessToken,
-            limit: '100',
         });
         if (after) params.set('after', after);
 
