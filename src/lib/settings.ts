@@ -8,7 +8,7 @@ import { getEnv } from '@/lib/env';
 
 export interface MetaSettings {
   metaAppId: string;
-  metaAppSecret: string;
+  metaAppSecret: string | null;
   metaFbAppSecret: string | null;
   metaLoginConfigId: string | null;
   webhookVerifyToken: string;
@@ -50,7 +50,7 @@ export async function getMetaSettings(): Promise<MetaSettings | null> {
     error ||
     !data ||
     !data.meta_app_id ||
-    !data.meta_app_secret_encrypted ||
+    (!data.meta_app_secret_encrypted && !data.meta_fb_app_secret_encrypted) ||
     !data.webhook_verify_token
   ) {
     cache = { value: null, at: Date.now() };
@@ -59,14 +59,16 @@ export async function getMetaSettings(): Promise<MetaSettings | null> {
 
   const env = getEnv();
 
-  let secret: string;
+  let secret: string | null = null;
   let fbSecret: string | null = null;
 
   try {
-    secret = decrypt(
-      data.meta_app_secret_encrypted,
-      env.TOKEN_ENCRYPTION_KEY
-    );
+    if (data.meta_app_secret_encrypted) {
+      secret = decrypt(
+        data.meta_app_secret_encrypted,
+        env.TOKEN_ENCRYPTION_KEY
+      );
+    }
 
     if (data.meta_fb_app_secret_encrypted) {
       fbSecret = decrypt(
@@ -129,8 +131,6 @@ export async function saveMetaSettings(input: {
     );
   } else if (existing?.meta_app_secret_encrypted) {
     settingsToSave.meta_app_secret_encrypted = existing.meta_app_secret_encrypted;
-  } else {
-    throw new Error('Meta App Secret is required for initial setup');
   }
 
   const fbSecret = input.metaFbAppSecret?.trim();
@@ -142,6 +142,13 @@ export async function saveMetaSettings(input: {
     );
   } else if (existing?.meta_fb_app_secret_encrypted) {
     settingsToSave.meta_fb_app_secret_encrypted = existing.meta_fb_app_secret_encrypted;
+  }
+
+  if (
+    !settingsToSave.meta_app_secret_encrypted &&
+    !settingsToSave.meta_fb_app_secret_encrypted
+  ) {
+    throw new Error('Meta App Secret from App Settings > Basic is required for initial setup');
   }
 
   if (input.metaLoginConfigId !== undefined) {
