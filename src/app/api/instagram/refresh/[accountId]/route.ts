@@ -28,7 +28,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
 
   const { data: account, error: fetchError } = await db
     .from('instagram_accounts')
-    .select('id, user_id, username, access_token_encrypted, token_expires_at')
+    .select('id, user_id, username, access_token_encrypted, token_expires_at, auth_method')
     .eq('id', accountId)
     .eq('user_id', user.id)
     .eq('is_active', true)
@@ -36,6 +36,16 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
 
   if (fetchError || !account) {
     return Response.json({ error: 'Instagram account not found' }, { status: 404 });
+  }
+
+  if (account.auth_method === 'unified_login') {
+    return Response.json(
+      {
+        error: 'unified_login_token_not_refreshable',
+        message: 'This Meta business integration token is managed by Unified Login. Reconnect the Instagram account through Unified Login if access needs to be renewed.',
+      },
+      { status: 409 }
+    );
   }
 
   const { status } = computeTokenStatus(account.token_expires_at as string | null);
