@@ -97,6 +97,8 @@ function SettingsContent() {
                 facebook_permissions_missing: "Meta no concedió todos los permisos necesarios para consultar tus páginas de Facebook. Revisa los permisos de la aplicación y vuelve a autorizar la conexión.",
                 no_accessible_facebook_pages: "Facebook autorizó la conexión, pero no se encontraron páginas accesibles para esta cuenta. Comprueba que la página esté agregada al portafolio Creator Academy Pro y asignada al usuario del sistema PROSPECTOR AI.",
                 facebook_page_token_missing: "Se encontró una página o cuenta profesional, pero Meta no devolvió un token de acceso válido para esa página. Revisa los permisos y la asignación de activos.",
+                unified_login_permissions_required: "Meta no concedió los permisos necesarios para leer las cuentas de Instagram asignadas. En tu configuración de Facebook Login for Business agrega business_management junto con instagram_basic, instagram_manage_messages e instagram_manage_comments y vuelve a conectar.",
+                no_assigned_instagram_accounts: "Meta no devolvió ninguna cuenta de Instagram asignada. En el inicio de sesión de Unified Login selecciona tu cuenta profesional de Instagram como activo del portafolio y vuelve a intentarlo.",
                 test_user_required: "Añade esta cuenta de Instagram como usuario de prueba para utilizar la herramienta de automatización. En tu aplicación de Meta, entra en App Roles > Roles > Add People > Instagram Tester. Después, acepta la invitación en Instagram y vuelve a conectar."
             };
 
@@ -124,7 +126,9 @@ function SettingsContent() {
         setConnectingIG(true);
 
         try {
-            const { url } = await apiClient<{ url: string }>("/instagram/connect");
+            const { url } = await apiClient<{ url: string }>(
+                "/instagram/connect?method=unified_login"
+            );
             window.location.href = url;
 
         } catch (err) {
