@@ -178,9 +178,13 @@ export async function inspectFacebookUserToken(
   appId: string,
   appSecret: string
 ): Promise<FacebookTokenInspection | null> {
+  // Unified Login selects Instagram business assets directly. The
+  // business_management permission is needed to read /me/assigned_instagram_accounts.
   const requiredPermissions = [
-    'pages_show_list',
-    'pages_read_engagement',
+    'business_management',
+    'instagram_basic',
+    'instagram_manage_messages',
+    'instagram_manage_comments',
   ];
 
   await debugLog(
@@ -441,6 +445,94 @@ export async function getFacebookPagesWithInstagram(
     throw err;
   }
 }
+/**
+ * Returns the Instagram professional accounts explicitly assigned by the
+ * business portfolio during Facebook Login for Business (Unified Login).
+ *
+ * This is intentionally different from /me/accounts: the selected Unified
+ * Login configuration grants Instagram assets directly and does not require
+ * a Facebook Page to be linked to the Instagram account.
+ */
+export async function getAssignedInstagramAccounts(
+  accessToken: string
+): Promise<FacebookInstagramAccount[]> {
+  const params = new URLSearchParams({
+    fields: 'id,username,profile_picture_url',
+    limit: '100',
+  });
+
+  let nextUrl: string | null =
+    `${FACEBOOK_GRAPH_BASE}/me/assigned_instagram_accounts?${params.toString()}`;
+  const accounts = new Map<string, FacebookInstagramAccount>();
+  let pageCount = 0;
+
+  while (nextUrl && pageCount < 10) {
+    const requestUrl = new URL(nextUrl);
+    if (
+      requestUrl.protocol !== 'https:' ||
+      requestUrl.hostname !== 'graph.facebook.com'
+    ) {
+      throw new Error('Meta returned an unexpected pagination URL for Instagram assets');
+    }
+
+    // Never carry an access token in a pagination URL. Authentication is sent
+    // in the Authorization header instead.
+    requestUrl.searchParams.delete('access_token');
+
+    const response = await fetch(requestUrl.toString(), {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(20_000),
+    });
+
+    const payload = await response.json() as {
+      data?: FacebookInstagramAccount[];
+      paging?: { next?: string };
+      error?: { message?: string; code?: number };
+    };
+
+    if (!response.ok || payload.error) {
+      const code = payload.error?.code;
+      const message = payload.error?.message ?? response.statusText;
+      await debugLog(
+        'oauth',
+        'error',
+        'assigned_instagram_accounts',
+        'error',
+        'Unified Login Instagram asset lookup failed',
+        { httpStatus: response.status, errorCode: code ?? null, errorMessage: message }
+      );
+      throw new Error(
+        `Could not retrieve Instagram accounts assigned by Meta (HTTP ${response.status}${code ? `, code ${code}` : ''}): ${message}`
+      );
+    }
+
+    for (const account of payload.data ?? []) {
+      if (account.id) accounts.set(account.id, account);
+    }
+
+    pageCount += 1;
+    nextUrl = payload.paging?.next ?? null;
+  }
+
+  if (nextUrl) {
+    throw new Error('Meta returned too many pages of assigned Instagram accounts');
+  }
+
+  const result = [...accounts.values()];
+  await debugLog(
+    'oauth',
+    'info',
+    'assigned_instagram_accounts',
+    result.length > 0 ? 'ok' : 'skipped',
+    `Unified Login returned ${result.length} assigned Instagram account(s)`,
+    { accountCount: result.length }
+  );
+
+  return result;
+}
+
 export async function subscribeFacebookInstagramWebhooks(
   instagramUserId: string,
   pageAccessToken: string
