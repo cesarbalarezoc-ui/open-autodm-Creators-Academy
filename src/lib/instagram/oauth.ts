@@ -1,11 +1,9 @@
 /**
- * Instagram Business Login OAuth helpers.
+ * Instagram OAuth helpers.
  *
- * Supports two authentication methods:
- * - instagram_login: Instagram Business Login.
- * - unified_login: Facebook Login for Business.
- *
- * OAuth state is signed and includes the authentication method.
+ * Supports the legacy Instagram Business Login and legacy Facebook Login
+ * flows, plus the current Instagram API with Unified Login flow.
+ * OAuth state is signed and includes the selected authentication method.
  */
 
 import { SignJWT, jwtVerify } from 'jose';
@@ -17,12 +15,13 @@ import type {
     IgUserProfile,
 } from '@/lib/types';
 
-export type InstagramAuthMethod = 'instagram_login' | 'unified_login';
+export type InstagramAuthMethod = 'instagram_login' | 'unified_login' | 'instagram_unified_login';
 
 const IG_OAUTH_URL = 'https://www.instagram.com/oauth/authorize';
 const IG_TOKEN_URL = 'https://api.instagram.com/oauth/access_token';
 const IG_LONG_LIVED_URL = 'https://graph.instagram.com/access_token';
 const IG_GRAPH_BASE = 'https://graph.instagram.com';
+const META_UNIFIED_GRAPH_BASE = 'https://graph.facebook.com/v27.0';
 
 export const REQUIRED_SCOPES = [
     'instagram_business_basic',
@@ -69,10 +68,19 @@ export async function verifyOAuthState(
         throw new Error('Invalid OAuth state payload');
     }
 
-    const authMethod =
-        payload.authMethod === 'unified_login'
-            ? 'unified_login'
-            : 'instagram_login';
+    const savedMethod = payload.authMethod;
+    let authMethod: InstagramAuthMethod;
+    if (
+        savedMethod === 'unified_login' ||
+        savedMethod === 'instagram_unified_login' ||
+        savedMethod === 'instagram_login'
+    ) {
+        authMethod = savedMethod;
+    } else if (savedMethod === undefined) {
+        authMethod = 'instagram_login';
+    } else {
+        throw new Error('Invalid OAuth authentication method');
+    }
 
     return {
         userId: payload.userId,
@@ -97,6 +105,181 @@ export function buildOAuthUrl(
     });
 
     return `${IG_OAUTH_URL}?${params.toString()}`;
+}
+
+/**
+ * Builds the Meta Login for Business URL for Instagram API with Unified Login.
+ * Clients can choose Instagram login in Meta's dialog.
+ */
+export function buildInstagramUnifiedLoginUrl(
+    appId: string,
+    configId: string,
+    redirectUri: string,
+    state: string
+): string {
+    const params = new URLSearchParams({
+        client_id: appId,
+        config_id: configId,
+        redirect_uri: redirectUri,
+        response_type: 'code',
+        display: 'popup',
+        prompt: 'login',
+        state,
+    });
+
+    return 'https://www.facebook.com/dialog/oauth?' + params.toString();
+}
+
+export interface InstagramUnifiedTokenResponse {
+    access_token: string;
+    token_type?: string;
+    expires_in?: number;
+}
+
+export interface InstagramUnifiedAccount {
+    id: string;
+    username: string;
+}
+
+export interface InstagramUnifiedIdentity {
+    clientBusinessId: string;
+    systemUserAppScopedId: string;
+}
+
+/**
+ * Exchanges the authorization code for a Business Integration System User token.
+ * This request stays server-side and uses the Meta App Secret.
+ */
+export async function exchangeInstagramUnifiedCode(
+    code: string,
+    appId: string,
+    appSecret: string,
+    redirectUri: string
+): Promise<InstagramUnifiedTokenResponse> {
+    const params = new URLSearchParams({
+        client_id: appId,
+        client_secret: appSecret,
+        redirect_uri: redirectUri,
+        code,
+    });
+
+    const res = await fetch(
+        META_UNIFIED_GRAPH_BASE + '/oauth/access_token?' + params.toString(),
+        {
+            signal: AbortSignal.timeout(20_000),
+            cache: 'no-store',
+        }
+    );
+
+    const payload = await res.json().catch(() => ({})) as
+        InstagramUnifiedTokenResponse & { error?: { message?: string } };
+
+    if (!res.ok) {
+        throw new Error(
+            'Instagram Unified Login token exchange failed: ' +
+            res.status + ' ' +
+            (payload.error?.message ?? 'Meta rejected the authorization code')
+        );
+    }
+
+    if (!payload.access_token) {
+        throw new Error('Instagram Unified Login returned no access token');
+    }
+
+    return payload;
+}
+
+/** Reads the client business portfolio and system-user IDs from /me. */
+export async function getInstagramUnifiedIdentity(
+    accessToken: string
+): Promise<InstagramUnifiedIdentity> {
+    const params = new URLSearchParams({
+        fields: 'client_business_id',
+        access_token: accessToken,
+    });
+
+    const res = await fetch(
+        META_UNIFIED_GRAPH_BASE + '/me?' + params.toString(),
+        {
+            signal: AbortSignal.timeout(20_000),
+            cache: 'no-store',
+        }
+    );
+
+    const payload = await res.json().catch(() => ({})) as {
+        id?: string;
+        client_business_id?: string;
+        error?: { message?: string };
+    };
+
+    if (!res.ok || !payload.id || !payload.client_business_id) {
+        throw new Error(
+            'Could not read the client business portfolio from Meta: ' +
+            (payload.error?.message ?? ('HTTP ' + res.status))
+        );
+    }
+
+    return {
+        clientBusinessId: payload.client_business_id,
+        systemUserAppScopedId: payload.id,
+    };
+}
+
+/**
+ * Retrieves every Instagram professional account shared through Unified Login.
+ * Pagination uses Meta's cursor instead of following a server-provided URL.
+ */
+export async function getInstagramUnifiedAccounts(
+    accessToken: string
+): Promise<InstagramUnifiedAccount[]> {
+    const accounts: InstagramUnifiedAccount[] = [];
+    let after: string | null = null;
+
+    for (let page = 0; page < 25; page += 1) {
+        const params = new URLSearchParams({
+            fields: 'id,username',
+            access_token: accessToken,
+        });
+        if (after) params.set('after', after);
+
+        const res = await fetch(
+            META_UNIFIED_GRAPH_BASE + '/me/assigned_instagram_accounts?' + params.toString(),
+            {
+                signal: AbortSignal.timeout(20_000),
+                cache: 'no-store',
+            }
+        );
+
+        const payload = await res.json().catch(() => ({})) as {
+            data?: Array<{ id?: string; username?: string }>;
+            paging?: { cursors?: { after?: string } };
+            error?: { message?: string };
+        };
+
+        if (!res.ok) {
+            throw new Error(
+                'Could not retrieve Instagram accounts shared with the app: ' +
+                (payload.error?.message ?? ('HTTP ' + res.status))
+            );
+        }
+
+        for (const item of payload.data ?? []) {
+            if (item.id) {
+                accounts.push({
+                    id: item.id,
+                    username: item.username?.trim() || item.id,
+                });
+            }
+        }
+
+        const next = payload.paging?.cursors?.after ?? null;
+        if (!next || next === after || (payload.data?.length ?? 0) === 0) {
+            break;
+        }
+        after = next;
+    }
+
+    return accounts;
 }
 
 /**

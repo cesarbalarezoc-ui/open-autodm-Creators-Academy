@@ -23,7 +23,7 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
 
   const { data: account, error: fetchError } = await db
     .from('instagram_accounts')
-    .select('id, user_id, instagram_user_id, access_token_encrypted')
+    .select('id, user_id, instagram_user_id, access_token_encrypted, auth_method')
     .eq('id', accountId)
     .eq('user_id', user.id)
     .eq('is_active', true)
@@ -40,7 +40,11 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
     return Response.json({ error: 'Failed to decrypt token' }, { status: 500 });
   }
 
-  const result = await getSubscribedFields(account.instagram_user_id as string, accessToken);
+  const result = await getSubscribedFields(
+    account.instagram_user_id as string,
+    accessToken,
+    (account.auth_method as 'instagram_login' | 'unified_login' | 'instagram_unified_login') ?? 'instagram_login'
+  );
   if (!result.ok) {
     return Response.json({ error: 'meta_api_error', message: result.raw.slice(0, 300) }, { status: 502 });
   }

@@ -13,7 +13,7 @@ export interface InstagramAccount {
   profile_picture_url: string | null;
   is_active: boolean;
   token_expires_at: string | null;
-auth_method: 'instagram_login' | 'unified_login';
+auth_method: 'instagram_login' | 'unified_login' | 'instagram_unified_login';
 token_type: string | null;
 facebook_page_id: string | null;
   token_status: TokenStatus;
@@ -37,8 +37,13 @@ export function useRefreshInstagramToken() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (accountId: string) =>
-      apiClient<{ success: boolean; token_expires_at: string; token_days_remaining: number }>
-        (`/instagram/refresh/${accountId}`, { method: 'POST' }),
+      apiClient<{
+        success: boolean;
+        refresh_required?: boolean;
+        token_expires_at: string | null;
+        token_days_remaining: number | null;
+        token_status: TokenStatus;
+      }>(`/instagram/refresh/${accountId}`, { method: 'POST' }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['instagram-accounts'] });
     },

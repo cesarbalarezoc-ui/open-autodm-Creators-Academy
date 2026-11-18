@@ -4,9 +4,11 @@
  * Battle-tested against the live Instagram API. Key facts this
  * module encodes (learned the hard way - do not "simplify" them away):
  *
- *  - Instagram Business Login tokens call graph.instagram.com, NOT graph.facebook.com.
- *  - Button templates (postback buttons) work on graph.instagram.com with
- *    Instagram Login user access tokens - used for the 2-step quick-reply flow.
+ *  - Legacy Instagram Business Login tokens use graph.instagram.com.
+ *  - Instagram API with Unified Login uses a Business Integration System User
+ *    token with graph.facebook.com/v27.0 and an Instagram professional account ID.
+ *  - Button templates (postback buttons) use the applicable API host for the
+ *    connected account's authentication method.
  *  - Postback payloads carry "SESSION_{uuid}_STEP_{n}" - routing is ALWAYS by
  *    payload, never by visible button text.
  *  - Access tokens are decrypted at call time and never logged.
@@ -19,11 +21,16 @@ import { classifyMetaError } from '@/lib/instagram/errors';
 const logger = createLogger('instagram');
 
 export const META_API_VERSION = 'v23.0';
-export type InstagramAuthMethod = 'instagram_login' | 'unified_login';
+export const META_UNIFIED_LOGIN_API_VERSION = 'v27.0';
+export type InstagramAuthMethod = 'instagram_login' | 'unified_login' | 'instagram_unified_login';
 
 function getMetaGraphBase(authMethod: InstagramAuthMethod = 'instagram_login'): string {
-  const host = authMethod === 'unified_login' ? 'graph.facebook.com' : 'graph.instagram.com';
-  return `https://${host}/${META_API_VERSION}`;
+  const isUnifiedGraph = authMethod === 'unified_login' || authMethod === 'instagram_unified_login';
+  const host = isUnifiedGraph ? 'graph.facebook.com' : 'graph.instagram.com';
+  const version = authMethod === 'instagram_unified_login'
+    ? META_UNIFIED_LOGIN_API_VERSION
+    : META_API_VERSION;
+  return `https://${host}/${version}`;
 }
 
 interface MetaSendMessageResponse {
