@@ -85,6 +85,16 @@ export async function GET(request: Request): Promise<Response> {
     return Response.json({ url, authMethod });
   }
 
+  if (!settings.metaAppSecret) {
+    return Response.json(
+      {
+        error: 'legacy_instagram_secret_required',
+        message: 'The classic Instagram App Secret is required only for the legacy connection methods.',
+      },
+      { status: 409 }
+    );
+  }
+
   if (authMethod === 'unified_login') {
     const configId = settings.metaLoginConfigId?.trim();
 
