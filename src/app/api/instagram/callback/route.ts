@@ -117,6 +117,18 @@ export async function GET(request: Request): Promise<Response> {
         throw new Error('Meta returned an invalid access token or a token for a different app.');
       }
 
+      if (tokenInspection?.missingPermissions.length) {
+        await debugLog(
+          'oauth',
+          'warn',
+          'unified_login_permissions',
+          'error',
+          'Unified Login token is missing required permissions',
+          { missingPermissions: tokenInspection.missingPermissions }
+        );
+        return settingsRedirect('instagram_error=unified_login_permissions_required');
+      }
+
       // Unified Login grants Instagram assets directly. Do not depend on a
       // Facebook Page or /me/accounts for this flow.
       try {
