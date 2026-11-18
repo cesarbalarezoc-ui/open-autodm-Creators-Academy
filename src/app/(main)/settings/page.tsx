@@ -241,7 +241,9 @@ function SettingsContent() {
 
             setBanner({
                 type: "success",
-                message: `Token renovado correctamente. Nueva vigencia: ${result.token_days_remaining} días.`
+                message: result.refresh_required === false
+                    ? "El token sigue vigente; no necesita renovarse todavía."
+                    : `Token renovado correctamente. Nueva vigencia: ${result.token_days_remaining ?? "sin expiración informada"} días.`
             });
 
         } catch (err) {
