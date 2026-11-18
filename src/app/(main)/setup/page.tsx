@@ -236,7 +236,8 @@ useEffect(() => {
                                           disabled={
     saveMutation.isPending ||
     !appId.trim() ||
-    (!appSecret.trim() && !configured)
+    (!appSecret.trim() && !configured) ||
+    (!fbAppSecret.trim() && !configured)
 }
       className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-foreground text-background text-[13px] font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                     >
@@ -281,8 +282,7 @@ useEffect(() => {
             {/* Step 4 */}
             <StepCard step={4} title="Activa el motor en segundo plano" icon={Clock3}>
                 <p className="text-[13px] text-muted-foreground mb-3 leading-relaxed">
-                    La mayoría de los mensajes directos se envían inmediatamente mediante el webhook. Este proceso cron se encarga del resto: mensajes pendientes por límites de envío,
-                    reintentos y renovación automática de tokens. En <b>Supabase → SQL Editor</b>, reemplaza{" "}
+                    La mayoría de los mensajes directos se envían inmediatamente mediante el webhook. Este proceso cron se encarga de mensajes pendientes y reintentos, y renueva los tokens del método clásico de Instagram Login. En Unified Login, la vigencia depende de la configuración de Meta; el refresco clásico no se aplica. Revisa la expiración mostrada en Meta y vuelve a conectar la cuenta cuando sea necesario. En <b>Supabase → SQL Editor</b>, reemplaza{" "}
                     <code className="font-mono text-[11px] bg-muted px-1 rounded">YOUR_CRON_SECRET</code> with your
                     deployment&apos;s CRON_SECRET y run:
                 </p>
